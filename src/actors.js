@@ -132,7 +132,7 @@ export function updateSparks(S, dt) {
     for (const sp of S.slots) {
       if (!sp.placed || sp.cover > 0) continue;
       sp.sparkT -= dt * sun * turbo * (sp.shadow > 0 ? 0.3 : 1);
-      if (sp.sparkT <= 0) { sp.sparkT = C.spark.every * rnd(0.7, 1.3); spawnSpark(S, sp.x, sp.y - 16); }
+      if (sp.sparkT <= 0) { sp.sparkT = C.spark.every * rnd(0.7, 1.3); if (S.sparks.length < 6) spawnSpark(S, sp.x, sp.y - 16); }   // cap on-screen sparks: no star soup
     }
   }
   for (let i = S.sparks.length - 1; i >= 0; i--) {

@@ -182,6 +182,9 @@ export function createAudio() {
     const ln = P.lead[i]; if (ln && (s >> 6) % 2 === 1) toneAt(t, mf(ln), 0.22, 'sine', 0.04 * V);
     if (i % 4 === 2) noiseAt(t, 0.04, (0.012 + tension * 0.02) * V, 6000);
     if (P === MUSIC.night && tension > 0.75 && i % 2 === 1) noiseAt(t, 0.03, 0.01, 8000);
+    // ambience: crickets at night, a bird now and then by day
+    if (P === MUSIC.night && (i === 5 || i === 13) && Math.random() < 0.6) for (let k = 0; k < 3; k++) toneAt(t + k * 0.045, 4300 + Math.random() * 300, 0.03, 'sine', 0.012);
+    if (P === MUSIC.day && i === 11 && bar === 2 && Math.random() < 0.7) { toneAt(t, 2600, 0.07, 'sine', 0.018, 900); toneAt(t + 0.09, 3100, 0.06, 'sine', 0.015, 700); }
   }
   setInterval(() => {
     if (!ac || muted || !mus.kind || ac.state !== 'running') { if (ac) mus.next = ac.currentTime + 0.05; return; }
@@ -209,6 +212,8 @@ export function createAudio() {
     hurt() { tone(300, 0.25, 'sawtooth', 0.09, -220); },
     splat() { noise(0.25, 0.07, 400); tone(140, 0.3, 'sine', 0.08, -60); },
     clean() { [1200, 1500, 1800].forEach((f, i) => tone(f, 0.06, 'sine', 0.05, 0, i * 0.04)); },
+    surge() { tone(1046, 0.09, 'square', 0.035); tone(784, 0.09, 'square', 0.035, 0, 0.11); },
+    reset() { noise(0.06, 0.08, 700); tone(392, 0.08, 'square', 0.07); [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.12, 'triangle', 0.07, 0, 0.06 + i * 0.05)); },
     alarm() { tone(880, 0.12, 'square', 0.05); tone(660, 0.12, 'square', 0.05, 0, 0.14); },
     windowOff() { tone(330, 0.35, 'sawtooth', 0.06, -200); },
     route() { if (!ac || ac.currentTime - lastRoute < 0.07) { ensure(); if (ac && ac.currentTime - lastRoute < 0.07) return; } lastRoute = ac ? ac.currentTime : 0; tone(600 + Math.random() * 300, 0.07, 'sawtooth', 0.03, 500); },

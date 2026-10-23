@@ -60,14 +60,14 @@ function heroRouting(S, dt, ctl) {
 export function resetSurge(S, w) {
   w.surge = 0; w.light = Math.min(1, w.light + C.night.resetBonus); w.fillFx = 1; S.stats.resets = (S.stats.resets || 0) + 1;
   const hs = S.houses[w.house]; hs.jump = 1; hs.mood = 0;
-  fx.text(w.x + w.w / 2, w.y - 16, 'Reset!', '#80ed99', 18); fx.burst(w.x + w.w / 2, w.y + w.h / 2, '#80ed99', 18, 160, 0.5, 3, 0); sfx.clean();
+  fx.text(w.x + w.w / 2, w.y - 16, 'Reset!', '#80ed99', 18); fx.burst(w.x + w.w / 2, w.y + w.h / 2, '#80ed99', 18, 160, 0.5, 3, 0); sfx.reset(); fx.shake(3);
   solSay(S, 'Breaker reset!', 1.1);
 }
 export function updateNight(S, dt, ctl, endLevel) {
   S.t += dt; const prog = Math.min(1, S.t / S.L.nightS); S.hour = lerp(NIGHT_START(), C.nightEndHour, prog);
   const esc = 1 + 0.7 * prog;
   for (const w of S.windows) {
-    w.fillFx = Math.max(0, w.fillFx - dt * 3); if (w.surge > 0) w.surge += dt;   // a surge lasts until Solarchik resets it (or the window dies)
+    w.fillFx = Math.max(0, w.fillFx - dt * 3); if (w.surge > 0) { const b = Math.floor(w.surge / 1.1); w.surge += dt; if (Math.floor(w.surge / 1.1) !== b) sfx.surge(); }   // a surge lasts until Solarchik resets it (or the window dies)
     if (w.dark) continue;
     if (w.delay > 0) { w.delay -= dt; continue; }
     w.light -= (w.drain * esc + (w.surge > 0 ? C.night.surgeDrain : 0)) * dt;
