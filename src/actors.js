@@ -200,9 +200,9 @@ export function updateDrones(S, dt) {
     if (d.state === 'flee') { d.y -= 220 * dt; d.x += (d.x < C.W / 2 ? -1 : 1) * 320 * dt; if (d.y < -120 || d.x < -150 || d.x > C.W + 150) S.drones.splice(i, 1); continue; }
     if (d.kind === 'leech') {   // flies to the street battery, plugs in and siphons it
       const bp = batteryPos(S), tx = bp.x + 34, ty = GROUND - 112;
-      if (d.state === 'seek') { const dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy); if (dist > 4) { const m = Math.min(dist, d.speed * dt); d.x += dx / dist * m; d.y += dy / dist * m; } else { d.state = 'drain'; d.t = 0; fx.text(d.x + 40, d.y - 60, 'Draining!', '#ff8fab', 16); } }
+      if (d.state === 'seek') { const dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy); if (dist > 4) { const m = Math.min(dist, d.speed * dt); d.x += dx / dist * m; d.y += dy / dist * m; } else { d.state = 'drain'; d.t = 0; d.hum = 0; sfx.plug(); fx.shake(3); fx.text(d.x + 40, d.y - 60, 'Draining!', '#ff8fab', 16); } }
       else if (d.state === 'drain') {
-        d.t += dt; d.x = tx + Math.sin(d.t * 30) * 1.5; d.y = ty;
+        d.t += dt; d.x = tx + Math.sin(d.t * 30) * 1.5; d.y = ty; d.hum -= dt; if (d.hum <= 0 && S.battery > 0) { d.hum = 0.45; sfx.siphon(); }
         const take = Math.min(S.battery, C.leech.drain * dt); S.battery -= take; S.stats.leeched = (S.stats.leeched || 0) + take;
         if (take > 0) { S.ui.batPulse = Math.max(S.ui.batPulse, 0.4); if (Math.random() < dt * 3) fx.text(bp.x + 6, bp.y - 66, '-kWh', '#ff8fab', 13, 0.6); }
       }

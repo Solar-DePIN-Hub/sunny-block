@@ -147,6 +147,7 @@ const mf = m => 440 * Math.pow(2, (m - 69) / 12);
 const MUSIC = {
   day: { bpm: 108, chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], roots: [48, 45, 41, 43], lead: [72, 0, 76, 0, 79, 0, 76, 74, 72, 0, 69, 0, 67, 0, 69, 0] },
   night: { bpm: 116, tensionBpm: 44, chords: [[57, 60, 64], [53, 57, 60], [50, 53, 57], [52, 56, 59]], roots: [45, 41, 38, 40], lead: [69, 0, 0, 72, 0, 0, 71, 0, 69, 0, 0, 64, 0, 0, 68, 0] },
+  storm: { bpm: 122, chords: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 55, 59]], roots: [45, 41, 43, 40], lead: [76, 0, 74, 0, 72, 0, 74, 76, 0, 0, 79, 0, 76, 0, 72, 0], storm: true },
   title: { bpm: 96, chords: [[60, 64, 67], [53, 57, 60], [57, 60, 64], [55, 59, 62]], roots: [48, 41, 45, 43], lead: [] },
 };
 export function createAudio() {
@@ -174,21 +175,23 @@ export function createAudio() {
   function tone(freq, dur, type, vol, slide = 0, delay = 0) { if (muted) return; const a = ensure(); if (!a) return; toneAt(a.currentTime + delay, freq, dur, type, vol, slide); }
   function noise(dur, vol, freq, delay = 0) { if (muted) return; const a = ensure(); if (!a) return; noiseAt(a.currentTime + delay, dur, vol, freq); }
   // music: look-ahead scheduler, 16th-note steps
-  const mus = { kind: null, tension: 0, step: 0, next: 0 };
+  const mus = { kind: null, tension: 0, step: 0, next: 0, tr: 0, bpm: 0 };
   function playStep(P, s, t, tension) {
-    const bar = (s >> 4) % 4, i = s % 16, ch = P.chords[bar], V = 0.8;
-    if (i % 8 === 0 || (tension > 0.55 && i % 4 === 0)) toneAt(t, mf(P.roots[bar]), 0.32, 'triangle', 0.09 * V);
-    if (i % 2 === 0) toneAt(t, mf(ch[(i / 2) % 3] + 12 * ((i >> 3) & 1) + 12), 0.11, P === MUSIC.night ? 'triangle' : 'square', (P === MUSIC.night ? 0.035 : 0.016) * V);
-    const ln = P.lead[i]; if (ln && (s >> 6) % 2 === 1) toneAt(t, mf(ln), 0.22, 'sine', 0.04 * V);
+    const bar = (s >> 4) % 4, i = s % 16, V = 0.8, tr = mus.tr, ch = P.chords[bar]; const tm = n => mf(n + tr);
+    if (i % 8 === 0 || (tension > 0.55 && i % 4 === 0)) toneAt(t, tm(P.roots[bar]), 0.32, 'triangle', 0.09 * V);
+    if (i % 2 === 0) toneAt(t, tm(ch[(i / 2) % 3] + 12 * ((i >> 3) & 1) + 12), 0.11, P === MUSIC.night ? 'triangle' : 'square', (P === MUSIC.night ? 0.035 : 0.016) * V);
+    const ln = P.lead[i]; if (ln && (s >> 6) % 2 === 1) toneAt(t, tm(ln), 0.22, 'sine', 0.04 * V);
     if (i % 4 === 2) noiseAt(t, 0.04, (0.012 + tension * 0.02) * V, 6000);
     if (P === MUSIC.night && tension > 0.75 && i % 2 === 1) noiseAt(t, 0.03, 0.01, 8000);
+    if (P.storm && i % 16 === 0 && Math.random() < 0.35) noiseAt(t, 0.9, 0.025, 200);   // distant thunder rumble on the storm day
+    if (P.storm && i % 2 === 1) noiseAt(t, 0.02, 0.006, 9000);   // rain hiss
     // ambience: crickets at night, a bird now and then by day
     if (P === MUSIC.night && (i === 5 || i === 13) && Math.random() < 0.6) for (let k = 0; k < 3; k++) toneAt(t + k * 0.045, 4300 + Math.random() * 300, 0.03, 'sine', 0.012);
     if (P === MUSIC.day && i === 11 && bar === 2 && Math.random() < 0.7) { toneAt(t, 2600, 0.07, 'sine', 0.018, 900); toneAt(t + 0.09, 3100, 0.06, 'sine', 0.015, 700); }
   }
   setInterval(() => {
     if (!ac || muted || !mus.kind || ac.state !== 'running') { if (ac) mus.next = ac.currentTime + 0.05; return; }
-    const P = MUSIC[mus.kind], spb = 60 / (P.bpm + (P.tensionBpm || 0) * mus.tension) / 4;
+    const P = MUSIC[mus.kind], spb = 60 / (P.bpm + mus.bpm + (P.tensionBpm || 0) * mus.tension) / 4;
     if (mus.next < ac.currentTime) mus.next = ac.currentTime + 0.05;
     while (mus.next < ac.currentTime + 0.18) { playStep(P, mus.step, mus.next, mus.tension); mus.next += spb; mus.step++; }
   }, 40);
@@ -197,7 +200,11 @@ export function createAudio() {
     unlock: ensure,
     get muted() { return muted; },
     toggle() { muted = !muted; store.set('sb-muted', muted ? '1' : '0'); },
-    music(kind) { if (mus.kind !== kind) { mus.kind = kind; mus.step = 0; } },
+    music(kind, lv = 0) {   // each weekday lifts key and tempo a little; Friday's day gets its own storm groove
+      if (kind === 'day' && lv === 4) kind = 'storm';
+      const tr = kind === 'title' ? 0 : [0, 2, 3, 5, 0][Math.max(0, lv)] || 0, bpm = kind === 'title' ? 0 : Math.max(0, lv) * 3;
+      if (mus.kind !== kind || mus.tr !== tr) { mus.kind = kind; mus.step = 0; mus.tr = tr; mus.bpm = bpm; }
+    },
     set tension(v) { mus.tension = v; },
     place() { tone(520, 0.08, 'square', 0.08); tone(780, 0.12, 'triangle', 0.1, 0, 0.06); },
     coin() { tone(988, 0.07, 'square', 0.05); tone(1319, 0.14, 'square', 0.05, 0, 0.07); },
@@ -212,6 +219,8 @@ export function createAudio() {
     hurt() { tone(300, 0.25, 'sawtooth', 0.09, -220); },
     splat() { noise(0.25, 0.07, 400); tone(140, 0.3, 'sine', 0.08, -60); },
     clean() { [1200, 1500, 1800].forEach((f, i) => tone(f, 0.06, 'sine', 0.05, 0, i * 0.04)); },
+    plug() { tone(1600, 0.1, 'sawtooth', 0.06, -1300); noise(0.1, 0.06, 2500); },
+    siphon() { tone(140, 0.32, 'sawtooth', 0.035, -50); tone(560, 0.2, 'sine', 0.02, -300, 0.05); },
     surge() { tone(1046, 0.09, 'square', 0.035); tone(784, 0.09, 'square', 0.035, 0, 0.11); },
     reset() { noise(0.06, 0.08, 700); tone(392, 0.08, 'square', 0.07); [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.12, 'triangle', 0.07, 0, 0.06 + i * 0.05)); },
     alarm() { tone(880, 0.12, 'square', 0.05); tone(660, 0.12, 'square', 0.05, 0, 0.14); },

@@ -34,7 +34,7 @@ export function startLevel(lv) {
   const s0 = S.houses[0].slots[0]; s0.placed = true; s0.scale = 1; s0.sparkT = 0.3;   // a head start: one panel already on Solarchik's roof
   G.S = S; G.mode = 'play'; G.paused = false; R = null;
   showBanner(`${S.L.day}: ${S.L.name}. Build panels and catch sparks before sunset!`, '#ffd166', 3);
-  sfx.music('day'); sfx.tension = 0;
+  sfx.music('day', lv); sfx.tension = 0;
   THEME.onLevelStart(S, api());
 }
 export function startTutorial() {

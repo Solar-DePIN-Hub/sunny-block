@@ -12,7 +12,7 @@ export function startNight(S) {
   S.windows.forEach(w => { w.light = Math.min(1, C.night.startLight * rnd(0.92, 1.08)); w.dark = false; w.surge = 0; w.drain = rnd(S.L.drain[0], S.L.drain[1]) * THEME.mods.drainRate; });
   order.forEach((wi, k) => { S.windows[wi].delay = k * 0.35 + rnd(0, 0.3); });   // they start fading one by one
   showBanner(G.touchUsed ? 'NIGHT: tap/drag fading windows to power them. SURGE? Run Solarchik there and tap ⚡!' : 'NIGHT: tap/drag fading windows to power them. SURGE? Run Solarchik there and press E!', '#ffd166', 4);
-  sfx.music('night'); THEME.onNightStart(S, api());
+  sfx.music('night', S.lv); THEME.onNightStart(S, api());
 }
 export function routeFill(S, w, amount, kind, from) {
   // pointer power goes over the street line (loses some); Solarchik carries it lossless (from = his position)
@@ -56,6 +56,7 @@ function heroRouting(S, dt, ctl) {
   for (const w of hs.wins) if (w.surge > 0 && !w.dark) resetSurge(S, w);
   const hr = C.night.holdRate * dt * (has('sprint') ? 1.5 : 1);
   for (const w of hs.wins) routeFill(S, w, fresh ? hr * 4 : hr, fresh ? 'tap' : 'hold', { x: h.x, y: h.y - 10 });
+  if (has('sprint')) for (const nb of [S.houses[hs.i - 1], S.houses[hs.i + 1]]) if (nb) for (const w of nb.wins) if (w.light < 0.6) routeFill(S, w, hr * 0.5, 'hold', { x: h.x, y: h.y - 10 });
   return hs;
 }
 export function resetSurge(S, w, auto = false) {

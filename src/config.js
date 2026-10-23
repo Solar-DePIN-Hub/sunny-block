@@ -47,7 +47,7 @@ export const CONFIG = {
     { id: 'combo', icon: 'fire', name: 'Combo Keeper', desc: 'Combos last 1 s longer' },
     { id: 'router', icon: 'bolt', name: 'Smart Router', desc: 'Night power costs 30% less', night: true },
     { id: 'shield', icon: 'shield', name: 'Surge Shield', desc: 'The first 2 surges each night reset themselves', night: true },
-    { id: 'sprint', icon: 'boot', name: 'Night Sprint', desc: 'Solarchik runs 40% faster at night and powers houses 50% faster', night: true },
+    { id: 'sprint', icon: 'boot', name: 'Night Sprint', desc: 'At night: run 40% faster, and held power also reaches next-door houses', night: true },
     { id: 'cheap', icon: 'tag', name: 'Bulk Deal', desc: 'Panels cost 25% less' },
     { id: 'boots', icon: 'boot', name: 'Thunder Boots', desc: 'Stomps zap drones nearby' },
   ],

@@ -37,7 +37,7 @@ function sunPos(h) {
   const el = elevation(C.latitude, DOY, h);
   return { el, x: ((h - SUN.sunrise + 1) / (SUN.sunset - SUN.sunrise + 2)) * C.W, y: GROUND - 40 - (el / Math.max(MAX_EL, 20)) * 300 };
 }
-function drawSky(h, cover) {
+function drawSky(h, cover, S) {
   const [top, mid, bot] = skyColors(h), { el, x: sx, y: sy } = sunPos(h), T = G.t;
   const grey = cover * 0.55;
   const g = ctx.createLinearGradient(0, 0, 0, GROUND);
@@ -50,6 +50,7 @@ function drawSky(h, cover) {
     for (let i = 0; i < 70; i++) { const x = (i * 157.3) % C.W, y = (i * 91.7) % 260, tw = 0.4 + 0.6 * Math.abs(Math.sin(T * 1.3 + i * 1.7)); ctx.globalAlpha = a * tw; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, i % 7 === 0 ? 1.6 : 1, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
+  { const dT = clamp((el + 6) / 12, 0, 1); drawSkyline(dT, S, 1 - dT); }   // the distant city sits behind the sun, which stays the hero of the sky
   if (el > -4) {
     const R = 26 + Math.sin(T * 3) * 1.2;
     ctx.globalAlpha = 1 - cover * 0.5;
@@ -120,9 +121,8 @@ function drawSkyline(dayT, S, nightK) {
 }
 export function drawWorld(h, S) {
   const el = elevation(C.latitude, DOY, h);
-  drawSky(h, S ? S.cloud : 0); if (S) drawClouds(S, el < -2);
+  drawSky(h, S ? S.cloud : 0, S); if (S) drawClouds(S, el < -2);
   const dayT = clamp((el + 6) / 12, 0, 1);
-  drawSkyline(dayT, S, 1 - dayT);
   ctx.fillStyle = lerpColor('#1a2440', '#9bd18a', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 70 - Math.sin(x / 170 + 1) * 22); ctx.lineTo(C.W, GROUND); ctx.fill();
   ctx.fillStyle = lerpColor('#1b2a3a', '#72bb62', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 40 - Math.sin(x / 120) * 18); ctx.lineTo(C.W, GROUND); ctx.fill();
   const gg = ctx.createLinearGradient(0, GROUND, 0, GROUND + 50); gg.addColorStop(0, lerpColor('#24352a', '#62b357', dayT)); gg.addColorStop(1, lerpColor('#1b2820', '#4d9a45', dayT));
