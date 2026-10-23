@@ -9,11 +9,16 @@
 <style>
   html,body{margin:0;height:100%;background:radial-gradient(ellipse at center,#1b2350 0%,#0b1026 70%);overflow:hidden;touch-action:none}
   body{display:flex;align-items:center;justify-content:center}
-  canvas{display:block;image-rendering:auto;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  canvas{outline:none;display:block;image-rendering:auto;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  #rotate{display:none;position:fixed;inset:0;z-index:9;background:#0b1026;color:#ffd166;font:800 22px system-ui,sans-serif;text-align:center;align-items:center;justify-content:center;flex-direction:column}
+  #rotate div{font-size:64px;animation:spin 2s ease-in-out infinite}
+  @keyframes spin{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+  @media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
 </style>
 </head>
 <body>
-<canvas id="game" width="960" height="540"></canvas>
+<canvas id="game" width="960" height="540" tabindex="0"></canvas>
+<div id="rotate"><div>↻</div><p>Turn your phone sideways to play</p></div>
 <script type="module" src="./src/game.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ export const today = new Date();
 export const DOY = dayOfYear(today);
 export const SUN = sunriseSunset(C.latitude, DOY);
 export const SUNSET = Math.round(SUN.sunset * 4) / 4;   // grid switches off at (real) sunset
+export const DAY_START = Math.ceil((SUN.sunrise + 0.4) * 4) / 4;   // the day opens just after the real sunrise, never in the dark
 export const MAX_EL = elevation(C.latitude, DOY, 12);
 export function sunFactor(h) { const el = elevation(C.latitude, DOY, h); return el <= 0 ? 0 : Math.sin(el * Math.PI / 180) / Math.sin(Math.max(MAX_EL, 20) * Math.PI / 180); }
 
@@ -127,7 +128,7 @@ export function drawHouse(hs, S, nightK) {
   if (!hs.you) sprite(hs.robot, x + w / 2 + 38, GROUND + 4 + bob, 52, hs.i % 2 === 0, hs.mood < 0 ? 0.75 : 1);
   if (hs.mood < 0 && !hs.you) { ctx.fillStyle = '#ff6b6b'; ctx.font = font(900, 16); ctx.textAlign = 'center'; ctx.fillText('!', x + w / 2 + 38, GROUND - 52 + Math.sin(T * 8) * 2); }
   // name tag
-  ctx.font = font(700, 11); const nw = ctx.measureText(hs.name).width + 14;
+  ctx.font = font(700, 12); const nw = ctx.measureText(hs.name).width + 14;
   roundRect(ctx, x + w / 2 - nw / 2, GROUND + 6, nw, 15, 7.5); ctx.fillStyle = 'rgba(14,18,48,.55)'; ctx.fill();
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(hs.name, x + w / 2, GROUND + 17);
   // panels / slots

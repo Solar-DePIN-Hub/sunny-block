@@ -67,7 +67,8 @@ export function createInput(canvas, stage) {
     input.x = p.x; input.y = p.y; input.pointers.set(e.pointerId, { x: p.x, y: p.y, id: e.pointerId });
     input.down = true; input.clicks.push({ x: p.x, y: p.y, id: e.pointerId });
     try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-    e.preventDefault();
+    // no preventDefault here: inside an itch.io iframe it would stop the frame from taking keyboard focus
+    try { window.focus(); canvas.focus({ preventScroll: true }); } catch { /* ignore */ }
   });
   canvas.addEventListener('pointermove', e => {
     const p = toStage(e); input.x = p.x; input.y = p.y;

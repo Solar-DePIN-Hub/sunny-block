@@ -10,7 +10,7 @@ export const BTN = {
   play: { x: C.W / 2 - 140, y: 192, w: 280, h: 68 },
   how: { x: C.W / 2 - 200, y: 396, w: 190, h: 40 },
   sound: { x: C.W / 2 + 10, y: 396, w: 190, h: 40 },
-  bat: { x: C.W - 154, y: 12, w: 96, h: 38 },
+  bat: { x: C.W - 166, y: 10, w: 108, h: 42 },
   pause: { x: C.W - 52, y: 12, w: 40, h: 38 },
   skip: { x: C.W - 172, y: 66, w: 160, h: 38 },
   next: { x: C.W / 2 - 260, y: 386, w: 170, h: 52 },
@@ -20,6 +20,7 @@ export const BTN = {
   restart: { x: C.W / 2 - 120, y: 250, w: 240, h: 50 },
   pmenu: { x: C.W / 2 - 120, y: 310, w: 240, h: 50 },
   psound: { x: C.W / 2 - 120, y: 370, w: 240, h: 50 },
+  share: { x: C.W / 2 + 166, y: 58, w: 122, h: 34 },
   fmenu: { x: C.W / 2 - 210, y: 400, w: 200, h: 52 },
   freplay: { x: C.W / 2 + 10, y: 400, w: 200, h: 52 },
 };
@@ -44,7 +45,7 @@ export function drawHUD(S) {
     roundRect(ctx, px + pw * og, py, pw * (1 - og), 6, 3); ctx.fillStyle = 'rgba(160,140,255,.9)'; ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + pw * clamp(done / tot, 0, 1), py + 3, 5.5, 0, 7); ctx.fill();
     const nW = S.L.waves.length, left = nW - S.waveIdx;
-    ctx.font = font(700, 11); ctx.fillStyle = '#c8d6ff'; ctx.textAlign = 'left';
+    ctx.font = font(700, 12); ctx.fillStyle = '#c8d6ff'; ctx.textAlign = 'left';
     ctx.fillText(S.phase === 'day' ? (left ? `storms left: ${left}` : 'no more storms') : 'keep windows lit', px, 45);
   }
   // centre: combo (day) or night timer
@@ -54,7 +55,7 @@ export function drawHUD(S) {
   panel(C.W - 400, 8, 390, 46);
   drawCoin(G.HUD_COIN.x, G.HUD_COIN.y, 11, S.ui.coinPulse);
   ctx.fillStyle = '#fff'; ctx.font = font(900, 20 + S.ui.coinPulse * 3); ctx.textAlign = 'left'; ctx.fillText(Math.floor(S.ui.coinShown + 0.001), C.W - 366, 38, 52);
-  const bx = C.W - 312, by = 18, bw = 150, bh = 26, f = clamp(S.battery / S.cap, 0, 1), bp = S.ui.batPulse;
+  const bx = C.W - 314, by = 18, bw = 136, bh = 26, f = clamp(S.battery / S.cap, 0, 1), bp = S.ui.batPulse;
   if (bp > 0) { ctx.save(); ctx.shadowColor = '#ffe066'; ctx.shadowBlur = 20 * bp; roundRect(ctx, bx, by, bw, bh, 8); ctx.fillStyle = '#222842'; ctx.fill(); ctx.restore(); }
   roundRect(ctx, bx, by, bw, bh, 8); ctx.fillStyle = '#1a1f3a'; ctx.fill(); ctx.strokeStyle = bp > 0 ? lerpColor('#ffffff', '#ffe066', bp) : 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.stroke();
   roundRect(ctx, bx + bw + 1, by + 8, 4, 10, 2); ctx.fillStyle = '#fff'; ctx.fill();
@@ -67,30 +68,37 @@ export function drawHUD(S) {
   ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(10,14,40,.85)';
   const bt = `${S.battery.toFixed(1)} / ${S.cap} kWh${f >= 0.995 ? ' FULL' : ''}`; ctx.strokeText(bt, bx + bw / 2, by + 17); ctx.fillStyle = '#fff'; ctx.fillText(bt, bx + bw / 2, by + 17);
   const cost = Math.round(S.capCost), canBuy = S.phase === 'day' && !S.tut;
-  button(BTN.bat, canBuy ? `+${C.economy.batteryUpgrade}kWh ${cost}c` : 'battery', canBuy && S.coins >= cost, '#80ed99');
+  // "bigger battery" = more capacity, not more charge: say so on the button itself
+  const okBuy = canBuy && S.coins >= cost;
+  button(BTN.bat, '', canBuy, '#80ed99');
+  const r = BTN.bat; ctx.textAlign = 'center'; ctx.fillStyle = canBuy ? '#1d2240' : '#2c3150';
+  ctx.font = font(900, 12); ctx.fillText(canBuy ? 'BIGGER BATTERY' : 'BATTERY', r.x + r.w / 2, r.y + 17, r.w - 10);
+  ctx.font = font(800, 13);
+  if (canBuy) { ctx.fillStyle = okBuy ? '#1d6b33' : '#a33'; ctx.fillText(`+${C.economy.batteryUpgrade} kWh · ${cost}`, r.x + r.w / 2 - 7, r.y + 34); drawCoin(r.x + r.w / 2 + ctx.measureText(`+${C.economy.batteryUpgrade} kWh · ${cost}`).width / 2 + 2, r.y + 30, 6); }
+  else { ctx.fillText(S.phase === 'day' ? 'training' : 'grid off', r.x + r.w / 2, r.y + 34); }
   button(BTN.pause, 'II', true, '#cdb4db');
   // banner
   drawBanner();
 }
 function drawCombo(S) {
-  const c = S.combo, x = C.W / 2, on = c.n > 0, col = C.combo.colors[c.mult - 1], pop = 1 + c.pop * 0.35 + (c.bump || 0) * 0.08;
+  const c = S.combo, x = 452, on = c.n > 0, col = C.combo.colors[c.mult - 1], pop = 1 + c.pop * 0.35 + (c.bump || 0) * 0.08;
   panel(x - 92, 8, 184, 46, 14, on ? 0.7 : 0.4);
   ctx.save(); ctx.translate(x - 52, 33); ctx.scale(pop, pop);
   ctx.font = font(900, 28); ctx.textAlign = 'center'; ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(10,14,40,.9)'; ctx.strokeText(`x${c.mult}`, 0, 9); ctx.fillStyle = on ? col : 'rgba(255,255,255,.4)'; ctx.fillText(`x${c.mult}`, 0, 9);
   ctx.restore();
   ctx.textAlign = 'left'; ctx.font = font(800, 13); ctx.fillStyle = on ? '#fff' : 'rgba(255,255,255,.5)';
-  ctx.fillText(on ? `${c.n} combo` : 'chain sparks,', x - 16, 27); ctx.font = font(700, 11);
+  ctx.fillText(on ? `${c.n} combo` : 'chain sparks,', x - 16, 27); ctx.font = font(700, 12);
   if (on) { roundRect(ctx, x - 16, 36, 92, 6, 3); ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fill(); roundRect(ctx, x - 16, 36, 92 * clamp(c.t / (c.tmax || 1), 0, 1), 6, 3); ctx.fillStyle = col; ctx.fill(); }
   else { ctx.fillText('stomps & cleans', x - 16, 43); }
   if (c.mult >= 3 && on) { ctx.globalAlpha = 0.25 + 0.2 * Math.sin(G.t * 10); ctx.strokeStyle = col; ctx.lineWidth = 3; roundRect(ctx, x - 92, 8, 184, 46, 14); ctx.stroke(); ctx.globalAlpha = 1; }
 }
 function drawNightGauge(S) {
-  const x = C.W / 2, left = Math.max(0, S.L.nightS - S.t), lit = S.windows.filter(w => !w.dark).length, share = S.nightTot ? S.nightLit / S.nightTot : 1;
+  const x = 452, left = Math.max(0, S.L.nightS - S.t), lit = S.windows.filter(w => !w.dark).length, share = S.nightTot ? S.nightLit / S.nightTot : 1;
   const urgent = left < 6 && !S.tutNight;
-  panel(x - 110, 8, 220, 46, 14, 0.75);
+  panel(x - 100, 8, 200, 46, 14, 0.75);
   ctx.textAlign = 'center'; ctx.font = font(900, 18); ctx.fillStyle = urgent ? (Math.sin(G.t * 12) > 0 ? '#ffd166' : '#fff') : '#fff';
   ctx.fillText(S.tutNight ? 'Night (practice)' : `22:00 in ${Math.ceil(left)}s`, x, 29);
-  ctx.font = font(700, 11); ctx.fillStyle = '#c8d6ff'; ctx.fillText(`${lit}/${S.windows.length} windows lit · ${Math.round(share * 100)}%`, x, 45);
+  ctx.font = font(700, 12); ctx.fillStyle = '#c8d6ff'; ctx.fillText(`${lit}/${S.windows.length} windows lit · ${Math.round(share * 100)}%`, x, 45);
 }
 export function drawBanner() {
   const b = G.banner; if (!b) return;
@@ -121,8 +129,8 @@ export function drawTouch() {
     ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2.5; ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (k === 'left' || k === 'right') { const s = k === 'left' ? -1 : 1; ctx.beginPath(); ctx.moveTo(z.x - 8 * s, z.y - 14); ctx.lineTo(z.x + 8 * s, z.y); ctx.lineTo(z.x - 8 * s, z.y + 14); ctx.stroke(); }
-    else if (k === 'jump') { ctx.beginPath(); ctx.moveTo(z.x - 14, z.y + 6); ctx.lineTo(z.x, z.y - 10); ctx.lineTo(z.x + 14, z.y + 6); ctx.stroke(); ctx.font = font(800, 10); ctx.textAlign = 'center'; ctx.fillText('JUMP', z.x, z.y + 24); }
-    else { ctx.globalAlpha = 1; icon('bolt', z.x, z.y - 2, 0.9); ctx.globalAlpha = 0.9; ctx.font = font(800, 10); ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('BUILD', z.x, z.y + 28); }
+    else if (k === 'jump') { ctx.beginPath(); ctx.moveTo(z.x - 14, z.y + 6); ctx.lineTo(z.x, z.y - 10); ctx.lineTo(z.x + 14, z.y + 6); ctx.stroke(); ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.fillText('JUMP', z.x, z.y + 24); }
+    else { ctx.globalAlpha = 1; icon('bolt', z.x, z.y - 2, 0.9); ctx.globalAlpha = 0.9; ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('BUILD', z.x, z.y + 28); }
   }
   ctx.globalAlpha = 1; ctx.lineCap = 'butt';
 }
@@ -182,7 +190,7 @@ export function drawTitle(titleHouses) {
     roundRect(ctx, r.x, r.y - (hover ? 2 : 0), r.w, r.h, 14); ctx.fillStyle = open ? (hover ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.12)') : 'rgba(0,0,0,.35)'; ctx.fill();
     ctx.strokeStyle = open ? (sv.stars[i] === 3 ? '#ffd166' : 'rgba(255,255,255,.35)') : 'rgba(255,255,255,.1)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.textAlign = 'center'; ctx.fillStyle = open ? '#fff' : '#777c99'; ctx.font = font(900, 18); ctx.fillText(L.day, r.x + r.w / 2, r.y + 26);
-    ctx.font = font(600, 11); ctx.fillText(L.name, r.x + r.w / 2, r.y + 44, r.w - 10);
+    ctx.font = font(600, 12); ctx.fillText(L.name, r.x + r.w / 2, r.y + 44, r.w - 10);
     if (open) for (let s = 0; s < 3; s++) starShape(r.x + r.w / 2 - 26 + s * 26, r.y + 70, 10, s < sv.stars[i]);
     else { ctx.fillStyle = '#777c99'; roundRect(ctx, r.x + r.w / 2 - 9, r.y + 64, 18, 14, 3); ctx.fill(); ctx.strokeStyle = '#777c99'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(r.x + r.w / 2, r.y + 64, 6, Math.PI, 0); ctx.stroke(); }
   }
@@ -190,7 +198,7 @@ export function drawTitle(titleHouses) {
   const total = sv.stars.reduce((a, b) => a + b, 0);
   ctx.fillStyle = '#ffd166'; ctx.font = font(800, 14); ctx.textAlign = 'center'; ctx.fillText(`★ ${total} / 15${sv.ups.length ? ` · upgrades: ${sv.ups.map(id => C.upgrades.find(u => u.id === id)?.name).join(', ')}` : ''}`, C.W / 2, 462, C.W - 260);
   ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 12); ctx.fillText('Arrows / A D run · Up / W / Space jump · E / Down build & power · phones: on-screen buttons · M sound', C.W / 2, 494);
-  ctx.fillStyle = '#8a90b0'; ctx.font = font(600, 11); ctx.fillText(`Real sun over ${C.placeName} today: up ${fmtHour(SUN.sunrise)}, down ${fmtHour(SUN.sunset)} (solar). Art: Solarchik CLOCK IN (MIT). Sound & music synthesized in code.`, C.W / 2, 520, C.W - 40);
+  ctx.fillStyle = '#8a90b0'; ctx.font = font(600, 12); ctx.fillText(`Real sun over ${C.placeName} today: up ${fmtHour(SUN.sunrise)}, down ${fmtHour(SUN.sunset)} (solar). Art: Solarchik CLOCK IN (MIT). Sound & music synthesized in code.`, C.W / 2, 520, C.W - 40);
 }
 // ---------- result ----------
 export function drawResult(S, R) {
@@ -211,7 +219,7 @@ export function drawResult(S, R) {
     const w = 132, x = cx - 276 + i * 140, y = cy + 228;
     roundRect(ctx, x, y, w, 46, 10); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = font(800, 18); ctx.textAlign = 'center'; ctx.fillText(v, x + w / 2, y + 21);
-    ctx.fillStyle = '#aab0cc'; ctx.font = font(600, 11); ctx.fillText(l, x + w / 2, y + 38);
+    ctx.fillStyle = '#aab0cc'; ctx.font = font(600, 12); ctx.fillText(l, x + w / 2, y + 38);
   });
   ctx.font = font(700, 13); ctx.fillStyle = '#ffd166';
   ctx.fillText(resultTip(S), cx, cy + 306, cw - 40);
@@ -221,7 +229,8 @@ export function drawResult(S, R) {
     if (passed) button(BTN.next, S.lv >= 4 ? 'Finish week ★' : 'Next day ▶', true, '#ffd166', false);
     button(passed ? BTN.retry : BTN.next, passed ? 'Retry ↻' : 'Try again ↻', true, '#8ecae6');
     button(BTN.menu, 'Menu', true, '#cdb4db');
-    ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 12); ctx.textAlign = 'center'; ctx.fillText('Enter = continue · R = retry · Esc = menu', cx, cy + ch + 22);
+    button(BTN.share, R.copied ? 'Copied ✓' : 'Copy result', true, '#80ed99');
+    ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 13); ctx.textAlign = 'center'; ctx.fillText('Enter = continue · R = retry · C = copy result · Esc = menu', cx, cy + ch + 24);
   }
 }
 function resultTip(S) {

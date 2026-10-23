@@ -2,10 +2,12 @@
 export const CONFIG = {
   title: 'Sunny Block',
   subtitle: 'a Solarchik game',
+  shareUrl: 'https://sunny-block.vercel.app',   // used by 'Copy result' (never location.href: on itch.io that is the iframe CDN URL)
   tagline: 'Run the roofs. Catch the sun. Keep the street lit all night.',
   W: 960, H: 540, GROUND: 434,
   latitude: 50.45, placeName: 'Kyiv',   // the sky follows today's real solar arc for this latitude
-  dayStartHour: 7.5, nightEndHour: 22, duskSeconds: 2.4,
+  nightEndHour: 22,   // the day opens just after today's real sunrise (world.js DAY_START)
+  duskSeconds: 2.4,
 
   hero: { speed: 290, accel: 2400, airAccel: 1800, friction: 2600, gravity: 2100, jumpV: 800, coyote: 0.1, buffer: 0.14, stompV: 640, stompHeldV: 840 },
   economy: { startBattery: 1, batteryStart: 10, batteryUpgrade: 5, batteryUpgradeCost: 25, batteryUpgradeGrowth: 1.35, panelCost: 15, panelCostGrowth: 1.16, panelKwh: 0.07, sellPrice: 2 },
@@ -52,8 +54,8 @@ export const CONFIG = {
     { key: 'move', text: 'Run! Arrow keys or A / D', touch: 'Run! Hold the ◀ ▶ buttons' },
     { key: 'jump', text: 'Jump onto a roof: Up, W or Space', touch: 'Jump onto a roof: tap ⤒' },
     { key: 'build', text: 'Stand on the + slot and press E or Down (or just tap the slot)', touch: 'Stand on the + slot and tap ⚡ (or tap the slot)' },
-    { key: 'spark', text: 'Grab the sun spark: run into it (or tap it)', touch: 'Grab the sun spark: run into it (or tap it)' },
-    { key: 'drone', text: 'Storm drone! Jump on it to stomp it (or tap it)', touch: 'Storm drone! Jump on it to stomp it (or tap it)' },
+    { key: 'spark', text: 'Grab the sun spark: run or jump into it', touch: 'Grab the sun spark: run or jump into it' },
+    { key: 'drone', text: 'Storm drone! Jump from the roof and land ON it', touch: 'Storm drone! Jump from the roof and land ON it' },
     { key: 'night', text: 'Night: tap or drag over the fading window to power it', touch: 'Night: tap or drag over the fading window to power it' },
   ],
 };

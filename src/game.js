@@ -1,7 +1,7 @@
 // Sunny Block: state machine (title → tutorial → day → dusk → night → result → upgrade), levels and saves.
 import { C, G, canvas, stage, ctx, input, tweens, fx, sfx, loadSave, writeSave, has, rnd, showBanner, readControls, ctl, touchZoneAt, touchOn, inRect, clamp } from './core.js';
 import { startLoop, lerp, easeOutBack, easeOutCubic } from './engine.js';
-import { GROUND, SUNSET, sunFactor, buildHouses, makeClouds, updateWeather, drawWorld, drawHouse, drawStreetBattery, nightAmount, windowAt, slotAt } from './world.js';
+import { GROUND, SUNSET, DAY_START, sunFactor, buildHouses, makeClouds, updateWeather, drawWorld, drawHouse, drawStreetBattery, nightAmount, windowAt, slotAt } from './world.js';
 import { makeHero, updateHero, heroDayActions, drawHero, buildSlot, cleanSlot, updateCombo, updateSparks, drawSparks, collectSpark, sparkPos, spawnSpark, spawnDrone, updateDrones, drawDrones, tapDrone, droneHit, dronesFlee, updateFlyers, drawFlyers, drawBolts, solSay, api } from './actors.js';
 import { startNight, updateNight, onNightClick, routeFill, NIGHT_START } from './night.js';
 import { BTN, levelCard, upCard, drawHUD, drawBanner, drawSlotTooltip, drawTouch, drawTutorial, drawTitle, drawResult, drawUpgrade, drawFinal, drawPause } from './ui.js';
@@ -23,7 +23,7 @@ function makeLevel(L, lv) {
     sparks: [], drones: [], flyers: [], bolts: [], pending: [], combo: { n: 0, t: 0, tmax: 1, mult: 1, pop: 0, bump: 0 },
     coins: L.coins, battery: C.economy.startBattery, cap: C.economy.batteryStart + (has('bigbat') ? 8 : 0),
     panelCost: C.economy.panelCost * (has('cheap') ? 0.75 : 1), capCost: C.economy.batteryUpgradeCost,
-    phase: 'day', t: 0, hour: C.dayStartHour, waveIdx: 0, cloud: L.weather[0], clouds: makeClouds(), rain: [], prodOn: false, prod: 0,
+    phase: 'day', t: 0, hour: DAY_START, waveIdx: 0, cloud: L.weather[0], clouds: makeClouds(), rain: [], prodOn: false, prod: 0,
     stats: { sparks: 0, sparkKwh: 0, built: 0, stomps: 0, drones: 0, cleaned: 0, covered: 0, maxCombo: 0, combos: 0, hurts: 0, darks: 0, fills: 0, routed: 0 },
     routeMap: new Map(), ui: { coinShown: L.coins, batPulse: 0, coinPulse: 0 }, nightLit: 0, nightTot: 0,
   };
@@ -78,7 +78,7 @@ function sampleWeather(arr, p) { const f = clamp(p, 0, 1) * (arr.length - 1), i 
 function daySim(S, dt) {
   if (!S.tut) S.t += dt;
   const p = S.t / S.L.dayS;
-  if (!S.tut) S.hour = lerp(C.dayStartHour, SUNSET, p);
+  if (!S.tut) S.hour = lerp(DAY_START, SUNSET, p);
   S.cloud = sampleWeather(S.L.weather, p);
   // passive production into the street battery; overflow is sold
   const sun = sunFactor(S.hour) * (1 - S.cloud) * (has('turbo') ? 1.3 : 1) * THEME.mods.panelPower;
@@ -154,6 +154,14 @@ function pickUpgrade(i) {
   showBanner(`${u.name}: ${u.desc}`, '#80ed99', 2.6);
   startLevel(G.S.lv + 1);
 }
+function shareText(S) {
+  return `Sunny Block ${S.L.day} (${S.L.name}): ${'★'.repeat(S.stars)}${'☆'.repeat(3 - S.stars)} ${Math.round(S.lit * 100)}% of the night lit, best combo ${S.stats.maxCombo}. Play: ${C.shareUrl}`;
+}
+function copyResult() {
+  const t = shareText(G.S), done = () => { if (R) R.copied = true; sfx.coin(); };
+  const fallback = () => { try { const a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); done(); } catch { /* ignore */ } };
+  try { navigator.clipboard.writeText(t).then(done, fallback); } catch { fallback(); }
+}
 function toMenu() { G.mode = 'title'; G.S = null; G.paused = false; sfx.music('title'); }
 
 // ---------- input routing ----------
@@ -170,15 +178,13 @@ function playClick(S, p) {
   if (inRect(p, BTN.bat)) { if (S.phase === 'day' && !S.tut) buyBattery(S); return; }
   if (S.phase === 'night' || S.tutNight) { onNightClick(S, p); return; }
   if (S.phase !== 'day') return;
-  let hit = null, hd = C.spark.tapRadius;
-  for (const s of S.sparks) { const q = sparkPos(s), d = Math.hypot(p.x - q.x, p.y - q.y); if (d < hd) { hd = d; hit = s; } }
-  if (hit) { S.sparks.splice(S.sparks.indexOf(hit), 1); collectSpark(S, hit); return; }
-  const d = S.drones.find(q => droneHit(q, p.x, p.y)); if (d) { tapDrone(S, d); return; }
+  // the pointer builds; sparks, drones and goo are Solarchik's job (that is what makes the hero matter)
   const sp = slotAt(S, p.x, p.y);
-  if (sp) {
-    if (!sp.placed) buildSlot(S, sp, 'tap');
-    else if (sp.cover > 0) { sp.taps++; fx.burst(sp.x, sp.y - 14, '#cfefff', 8, 90, 0.4, 2, -40); sfx.tick(); if (sp.taps >= C.cleanTaps) cleanSlot(S, sp); }
-  }
+  if (sp && !sp.placed) { buildSlot(S, sp, 'tap'); return; }
+  const hint = (x, y, t) => { if (G.t - (S.hintT || -9) < 1) return; S.hintT = G.t; fx.text(x, y, t, '#ffe08a', 15, 1); sfx.tick(); };
+  if (S.sparks.some(s => { const q = sparkPos(s); return Math.hypot(p.x - q.x, p.y - q.y) < C.spark.tapRadius; })) return hint(p.x, p.y - 26, 'Run Solarchik into it!');
+  if (S.drones.some(q => droneHit(q, p.x, p.y))) return hint(p.x, p.y - 50, 'Jump ON it with Solarchik!');
+  if (sp && sp.cover > 0) return hint(sp.x, sp.y - 40, 'Stand on it to scrub');
 }
 function handleClick(p) {
   sfx.unlock();
@@ -205,6 +211,7 @@ function handleClick(p) {
     if (inRect(p, BTN.next)) return resultNext();
     if (G.S.stars > 0 && inRect(p, BTN.retry)) return startLevel(G.S.lv);
     if (inRect(p, BTN.menu)) return toMenu();
+    if (inRect(p, BTN.share)) return copyResult();
     return;
   }
   if (G.mode === 'upgrade') { for (let i = 0; i < choices.length; i++) if (inRect(p, upCard(i))) return pickUpgrade(i); return; }
@@ -219,7 +226,7 @@ function handleKeys() {
     if (G.paused && input.consumeKey('enter')) G.paused = false;
     return;
   }
-  if (G.mode === 'result' && R && R.card > 0.95) { if (go()) resultNext(); else if (input.consumeKey('r')) startLevel(G.S.lv); else if (input.consumeKey('escape')) toMenu(); return; }
+  if (G.mode === 'result' && R && R.card > 0.95) { if (go()) resultNext(); else if (input.consumeKey('r')) startLevel(G.S.lv); else if (input.consumeKey('c')) copyResult(); else if (input.consumeKey('escape')) toMenu(); return; }
   if (G.mode === 'upgrade') { for (let i = 0; i < 3; i++) if (input.consumeKey(String(i + 1))) return pickUpgrade(i); return; }
   if (G.mode === 'final' && go()) toMenu();
 }
@@ -251,7 +258,7 @@ function hoverTarget() {
   if (G.mode !== 'play' || !G.S) return false;
   const S = G.S; if (inRect(p, BTN.pause) || inRect(p, BTN.bat)) return true;
   if (S.phase === 'night' || S.tutNight) return !!windowAt(S, p.x, p.y);
-  return S.sparks.some(s => { const q = sparkPos(s); return Math.hypot(p.x - q.x, p.y - q.y) < C.spark.tapRadius; }) || S.drones.some(d => droneHit(d, p.x, p.y)) || !!slotAt(S, p.x, p.y);
+  const sp = slotAt(S, p.x, p.y); return !!sp && !sp.placed;
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'play') G.paused = true; });
 
@@ -279,4 +286,4 @@ function render() {
 sfx.music('title');
 startLoop(update, render);
 // test hook (automated headless plays use it to read state and drive input)
-window.__sunny = { G, C, input, BTN, levelCard, upCard, startLevel, startTutorial, SUNSET, get S() { return G.S; }, get mode() { return G.mode; }, set timeScale(v) { G.timeScale = v; } };
+window.__sunny = { G, C, shareText, input, BTN, levelCard, upCard, startLevel, startTutorial, SUNSET, get S() { return G.S; }, get mode() { return G.mode; }, set timeScale(v) { G.timeScale = v; } };
