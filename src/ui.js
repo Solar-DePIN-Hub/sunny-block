@@ -20,7 +20,7 @@ export const BTN = {
   restart: { x: C.W / 2 - 120, y: 250, w: 240, h: 50 },
   pmenu: { x: C.W / 2 - 120, y: 310, w: 240, h: 50 },
   psound: { x: C.W / 2 - 120, y: 370, w: 240, h: 50 },
-  share: { x: C.W / 2 + 166, y: 58, w: 122, h: 34 },
+  share: { x: C.W / 2 + 166, y: 146, w: 122, h: 34 },
   fmenu: { x: C.W / 2 - 210, y: 400, w: 200, h: 52 },
   freplay: { x: C.W / 2 + 10, y: 400, w: 200, h: 52 },
 };
