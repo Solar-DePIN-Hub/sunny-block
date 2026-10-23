@@ -199,7 +199,7 @@ export function drawTitle(titleHouses) {
   const total = sv.stars.reduce((a, b) => a + b, 0);
   ctx.fillStyle = '#ffd166'; ctx.font = font(800, 14); ctx.textAlign = 'center'; ctx.fillText(`★ ${total} / 15${sv.ups.length ? ` · upgrades: ${sv.ups.map(id => C.upgrades.find(u => u.id === id)?.name).join(', ')}` : ''}`, C.W / 2, 462, C.W - 260);
   ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 12); ctx.fillText('Arrows / A D run · Up / W / Space jump · E / Down build & power · phones: on-screen buttons · M sound', C.W / 2, 494);
-  ctx.fillStyle = '#8a90b0'; ctx.font = font(600, 12); ctx.fillText(`Real sun over ${C.placeName} today: up ${fmtHour(SUN.sunrise)}, down ${fmtHour(SUN.sunset)} (solar). Art: Solarchik CLOCK IN (MIT). Sound & music synthesized in code.`, C.W / 2, 520, C.W - 40);
+  ctx.fillStyle = '#8a90b0'; ctx.font = font(600, 12); ctx.fillText(`Real sun over ${C.placeName} today: up ${fmtHour(SUN.sunrise)}, down ${fmtHour(SUN.sunset)} (solar). Art: Solarchik CLOCK IN (MIT). Sound & music synthesized in code.`, C.W / 2 + 70, 520, C.W - 280);
 }
 // ---------- result ----------
 export function drawResult(S, R) {
