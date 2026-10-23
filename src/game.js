@@ -64,7 +64,7 @@ function tutorialStep(S, dt) {
     case 5:
       if (!tut.win) {
         S.tutNight = true; S.battery = Math.max(S.battery, 4); S.windows.forEach(w => { w.light = 1; });
-        tut.win = S.houses[1].wins[0]; tut.win.light = 0.3; showBanner('After sunset the grid is OFF. Windows fade unless you power them.', '#ffd166', 3);
+        tut.win = S.houses[1].wins[0]; tut.win.light = 0.3; G.banner = null; S.drones.forEach(d => { if (d.state !== 'dead') d.state = 'flee'; });
       }
       tut.win.light = Math.max(0.12, tut.win.light - dt * 0.03);
       if (tut.win.light >= 0.9 && tut.t > 1.2) next();
@@ -128,7 +128,8 @@ function endLevel(S) {
   S.lit = S.nightTot ? S.nightLit / S.nightTot : 0;
   THEME.onLevelEnd(S, api());
   const st = C.stars; S.stars = S.lit >= st[2] ? 3 : S.lit >= st[1] ? 2 : S.lit >= st[0] ? 1 : 0;
-  S.score = Math.round(S.lit * 1000 + S.stats.maxCombo * 20 + S.stats.drones * 25 + S.battery * 10);
+  S.score = Math.round(S.lit * 1000 + S.coins + S.stats.maxCombo * 10 + S.stats.drones * 20);   // unspent coins count: saving vs building is a real choice
+  S.prevBest = G.save.best[S.lv] || 0;
   const sv = G.save; sv.stars[S.lv] = Math.max(sv.stars[S.lv], S.stars); sv.best[S.lv] = Math.max(sv.best[S.lv], S.score);
   if (S.stars > 0) sv.unlocked = Math.max(sv.unlocked, Math.min(5, S.lv + 2));
   writeSave();

@@ -8,7 +8,7 @@ export const today = new Date();
 export const DOY = dayOfYear(today);
 export const SUN = sunriseSunset(C.latitude, DOY);
 export const SUNSET = Math.round(SUN.sunset * 4) / 4;   // grid switches off at (real) sunset
-export const DAY_START = Math.ceil((SUN.sunrise + 0.4) * 4) / 4;   // the day opens just after the real sunrise, never in the dark
+export const DAY_START = (() => { let h = SUN.sunrise; while (h < 12 && elevation(C.latitude, DOY, h) < 6) h += 0.05; return h; })();   // the day opens once the real sun is ~6 deg up, never in the dark
 export const MAX_EL = elevation(C.latitude, DOY, 12);
 export function sunFactor(h) { const el = elevation(C.latitude, DOY, h); return el <= 0 ? 0 : Math.sin(el * Math.PI / 180) / Math.sin(Math.max(MAX_EL, 20) * Math.PI / 180); }
 
@@ -30,7 +30,7 @@ function skyColors(h) {
   const mix = (a, b, t) => a.map((c, i) => lerpColor(c, b[i], t));
   if (el < -8) return night;
   if (el < 0) return mix(night, dusk, (el + 8) / 8);
-  if (el < 12) return mix(dusk, day, el / 12);
+  if (el < 8) return mix(dusk, day, Math.sqrt(el / 8));
   return day;
 }
 function sunPos(h) {
@@ -93,7 +93,7 @@ export const nightAmount = h => clamp((2 - elevation(C.latitude, DOY, h)) / 8, 0
 export function drawWorld(h, S) {
   const el = elevation(C.latitude, DOY, h);
   drawSky(h, S ? S.cloud : 0); if (S) drawClouds(S, el < -2);
-  const dayT = clamp((el + 6) / 16, 0, 1);
+  const dayT = clamp((el + 6) / 12, 0, 1);
   ctx.fillStyle = lerpColor('#1a2440', '#9bd18a', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 70 - Math.sin(x / 170 + 1) * 22); ctx.lineTo(C.W, GROUND); ctx.fill();
   ctx.fillStyle = lerpColor('#1b2a3a', '#72bb62', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 40 - Math.sin(x / 120) * 18); ctx.lineTo(C.W, GROUND); ctx.fill();
   const gg = ctx.createLinearGradient(0, GROUND, 0, GROUND + 50); gg.addColorStop(0, lerpColor('#24352a', '#62b357', dayT)); gg.addColorStop(1, lerpColor('#1b2820', '#4d9a45', dayT));
@@ -139,7 +139,11 @@ function drawWindow(wd, S, nightK) {
   const la = night ? (wd.dark ? 0 : 0.35 + 0.65 * wd.light) : 0;
   const low = night && !wd.dark && wd.light < C.night.low, blink = low ? 0.55 + 0.45 * Math.sin(T * 18) : 1;
   if (night && la > 0.05) { const wg = ctx.createRadialGradient(x + w / 2, y + h / 2, 4, x + w / 2, y + h / 2, 44); wg.addColorStop(0, `rgba(255,209,102,${0.45 * la * blink})`); wg.addColorStop(1, 'rgba(255,209,102,0)'); ctx.fillStyle = wg; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, 44, 0, 7); ctx.fill(); }
-  if (night && wd.surge > 0) { ctx.strokeStyle = `rgba(255,90,120,${0.5 + 0.5 * Math.sin(T * 20)})`; ctx.lineWidth = 4; ctx.strokeRect(x - 5, y - 5, w + 10, h + 10); }
+  if (night && wd.surge > 0 && !wd.dark) {
+    ctx.strokeStyle = `rgba(255,90,120,${0.5 + 0.5 * Math.sin(T * 20)})`; ctx.lineWidth = 4; ctx.strokeRect(x - 5, y - 5, w + 10, h + 10);
+    const by = y - 30 + Math.sin(T * 8) * 2; roundRect(ctx, x + w / 2 - 34, by - 13, 68, 20, 10); ctx.fillStyle = '#ff4d6d'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = font(900, 12); ctx.textAlign = 'center'; ctx.fillText(G.touchUsed ? 'SURGE ⚡' : 'SURGE: E', x + w / 2, by + 2);
+  }
   ctx.fillStyle = night ? lerpColor('#151829', '#ffd166', la * blink) : lerpColor('#cfeaff', '#3a4a7a', nightK); ctx.fillRect(x, y, w, h);
   if (!night) { ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.moveTo(x + 3, y + h - 4); ctx.lineTo(x + 12, y + 3); ctx.lineTo(x + 17, y + 3); ctx.lineTo(x + 8, y + h - 4); ctx.fill(); }
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h); ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.stroke();

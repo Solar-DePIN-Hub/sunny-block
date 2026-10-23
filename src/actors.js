@@ -101,11 +101,11 @@ function groundBelow(S, h) { let y = GROUND; for (const hs of S.houses) if (h.x 
 // ---------- combo ----------
 export function comboTier(n) { let t = 1; C.combo.tiers.forEach((th, i) => { if (n >= th) t = i + 1; }); return t; }
 export function hitCombo(S, x, y, hits = 1) {
-  const c = S.combo; c.n += hits; c.t = C.combo.window + (has('combo') ? 1.5 : 0); c.tmax = c.t;
+  const c = S.combo; c.n += hits; c.t = C.combo.window + (has('combo') ? 1 : 0); c.tmax = c.t;
   const tier = comboTier(c.n); S.stats.maxCombo = Math.max(S.stats.maxCombo, c.n);
   if (tier > c.mult) {
     c.mult = tier; c.pop = 1; const col = C.combo.colors[tier - 1];
-    fx.text(x, y - 34, `COMBO x${tier}!`, col, 24 + tier * 2, 1.3); fx.shake(3 + tier); sfx.comboUp(tier);
+    fx.text(clamp(x, 90, C.W - 90), clamp(y - 34, 130, C.H), `COMBO x${tier}!`, col, 20 + tier * 2, 1.1); fx.shake(3 + tier); sfx.comboUp(tier);
     fx.burst(x, y, col, 22 + tier * 6, 240, 0.8, 3.5, 80);
   } else c.bump = 1;
   return c.mult;
@@ -151,7 +151,7 @@ export function collectSpark(S, s) {
   const coins = Math.round(C.spark.coins * m + over * C.economy.sellPrice);
   S.battery += put; S.coins += coins; S.stats.sparks++; S.stats.sparkKwh += put;
   fx.burst(s.x, s.y, '#ffd166', 14 + m * 4, 160 + m * 20, 0.6, 3, 60); fx.burst(s.x, s.y, '#fff6c2', 8, 90, 0.4, 2, 0);
-  fx.text(s.x, s.y - 16, `+${coins}`, C.combo.colors[m - 1], 17 + m * 2);
+  fx.text(s.x, s.y - 16, `+${coins}`, C.combo.colors[m - 1], 14 + m);
   if (put > 0.05) fx.text(s.x, s.y + 6, `+${put.toFixed(1)} kWh`, '#a7f3b5', 12, 0.9);
   sfx.spark(S.combo.n);
   if (put > 0.05) fly(S, s.x, s.y, G.HUD_BAT, '#ffe066', () => { S.ui.batPulse = 1; });
@@ -211,7 +211,7 @@ export function updateDrones(S, dt) {
           d.x = d.tx + Math.sin(d.t * 45) * 2.5 * (d.t / C.drone.charge);
           if (Math.random() < dt * 16) S.rain.push({ x: d.x + rnd(-22, 22), y: d.y + 16, v: 260 });
           if (d.t >= C.drone.charge / Math.sqrt(S.L.droneSpeed || 1)) {
-            d.target.cover = 1; d.target.cleanT = 0; d.target.taps = 0; S.stats.covered++;
+            d.target.cover = 1; d.target.cleanT = 0; d.target.taps = 0; S.stats.covered++; breakCombo(S, 'Panel gooed! Combo lost');
             fx.burst(d.target.x, d.target.y - 14, '#4a4e69', 18, 120, 0.6, 3.5, 300); sfx.splat(); fx.text(d.target.x, d.target.y - 40, 'Panel covered!', '#c8c9ff', 14);
             d.state = 'seek'; d.rest = 1.1; d.target = null;
           }

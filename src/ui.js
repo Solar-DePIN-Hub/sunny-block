@@ -36,7 +36,7 @@ export function drawHUD(S) {
   roundRect(ctx, 18, 15, 50, 32, 9); ctx.fillStyle = '#ffd166'; ctx.fill();
   ctx.fillStyle = '#4a2400'; ctx.font = font(900, 15); ctx.textAlign = 'center'; ctx.fillText(S.L.day, 43, 37);
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = font(800, 14); ctx.fillText(S.L.name, 78, 28, 150);
-  ctx.font = font(700, 12); ctx.fillStyle = S.phase === 'day' ? '#ffd166' : '#ff8fab';
+  ctx.font = font(700, 13); ctx.fillStyle = S.phase === 'day' ? '#ffd166' : '#ff8fab';
   ctx.fillText(S.tut ? 'Training: no clock' : S.phase === 'day' ? `${fmtHour(S.hour)} · grid off at ${fmtHour(SUNSET)}` : `${fmtHour(S.hour)} · GRID OFF`, 78, 45);
   if (!S.tut) {
     const tot = S.L.dayS + C.duskSeconds + S.L.nightS, done = S.phase === 'day' ? S.t : S.phase === 'dusk' ? S.L.dayS + S.t : S.L.dayS + C.duskSeconds + S.t;
@@ -45,7 +45,7 @@ export function drawHUD(S) {
     roundRect(ctx, px + pw * og, py, pw * (1 - og), 6, 3); ctx.fillStyle = 'rgba(160,140,255,.9)'; ctx.fill();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px + pw * clamp(done / tot, 0, 1), py + 3, 5.5, 0, 7); ctx.fill();
     const nW = S.L.waves.length, left = nW - S.waveIdx;
-    ctx.font = font(700, 12); ctx.fillStyle = '#c8d6ff'; ctx.textAlign = 'left';
+    ctx.font = font(700, 13); ctx.fillStyle = '#c8d6ff'; ctx.textAlign = 'left';
     ctx.fillText(S.phase === 'day' ? (left ? `storms left: ${left}` : 'no more storms') : 'keep windows lit', px, 45);
   }
   // centre: combo (day) or night timer
@@ -130,7 +130,7 @@ export function drawTouch() {
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (k === 'left' || k === 'right') { const s = k === 'left' ? -1 : 1; ctx.beginPath(); ctx.moveTo(z.x - 8 * s, z.y - 14); ctx.lineTo(z.x + 8 * s, z.y); ctx.lineTo(z.x - 8 * s, z.y + 14); ctx.stroke(); }
     else if (k === 'jump') { ctx.beginPath(); ctx.moveTo(z.x - 14, z.y + 6); ctx.lineTo(z.x, z.y - 10); ctx.lineTo(z.x + 14, z.y + 6); ctx.stroke(); ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.fillText('JUMP', z.x, z.y + 24); }
-    else { ctx.globalAlpha = 1; icon('bolt', z.x, z.y - 2, 0.9); ctx.globalAlpha = 0.9; ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('BUILD', z.x, z.y + 28); }
+    else { ctx.globalAlpha = 1; icon('bolt', z.x, z.y - 2, 0.9); ctx.globalAlpha = 0.9; ctx.font = font(800, 12); ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(G.S && G.S.phase === 'night' ? 'POWER' : 'BUILD', z.x, z.y + 28); }
   }
   ctx.globalAlpha = 1; ctx.lineCap = 'butt';
 }
@@ -213,8 +213,8 @@ export function drawResult(S, R) {
   ctx.font = font(600, 13); ctx.fillStyle = '#b8bdd6'; ctx.fillText(`${S.L.day} · ${S.L.name}`, cx, cy + 72);
   for (let i = 0; i < 3; i++) { const s = R.stars[i] || 0; if (s > 0) starShape(cx - 70 + i * 70, cy + 122, 28, i < S.stars, (1 - s) * 0.8, s * (i < S.stars ? 1 : 0.85)); }
   ctx.fillStyle = '#fff'; ctx.font = font(900, 28); ctx.fillText(`${Math.round((R.litShown || 0) * 100)}% of the night lit`, cx, cy + 192);
-  ctx.font = font(700, 12); ctx.fillStyle = '#aab0cc'; ctx.fillText(`stars at ${C.stars.map(s => Math.round(s * 100) + '%').join(' · ')}`, cx, cy + 212);
-  const stats = [[`${S.stats.sparks}`, 'sparks'], [`${S.stats.maxCombo}`, 'best combo'], [`${S.stats.drones}`, 'drones beaten'], [`${S.stats.built}`, 'panels built']];
+  ctx.font = font(700, 12); ctx.fillStyle = '#aab0cc'; ctx.fillText(`stars at ${C.stars.map(s => Math.round(s * 100) + '%').join(' · ')}   ·   score ${S.score}${S.score > S.prevBest && S.prevBest > 0 ? ' NEW BEST!' : S.prevBest ? ` (best ${S.prevBest})` : ''}`, cx, cy + 212);
+  const stats = [[`${S.stats.sparks}`, 'sparks'], [`${S.stats.maxCombo}`, 'best combo'], [`${S.stats.drones}`, 'drones beaten'], [`${S.stats.resets || 0}/${S.stats.surges || 0}`, 'surges reset']];
   stats.forEach(([v, l], i) => {
     const w = 132, x = cx - 276 + i * 140, y = cy + 228;
     roundRect(ctx, x, y, w, 46, 10); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
@@ -237,8 +237,9 @@ function resultTip(S) {
   if (S.stars === 3) return 'Every window stayed warm. Solarchik is proud of you!';
   if (S.battery < 0.5 && S.stats.darks > 0) return 'Battery ran dry: build more panels early and buy +kWh before sunset.';
   if (S.stats.fills < 4) return 'At night, tap or drag over the fading windows to power them.';
-  if (S.stats.darks > 2) return 'Top up windows when they blink red, and watch for SURGE windows.';
-  return 'Chain sparks and stomps for a bigger combo: more coins, more panels.';
+  if ((S.stats.surges || 0) > (S.stats.resets || 0) + 1) return 'SURGE windows die fast: run Solarchik to that house and press E / ⚡.';
+  if (S.stats.darks > 2) return 'Top up windows when they blink red. Solarchik (hold E) powers a house without line loss.';
+  return 'Chain sparks and stomps fast for a bigger combo. Unspent coins add to your score.';
 }
 // ---------- upgrade pick ----------
 export function drawUpgrade(choices) {
