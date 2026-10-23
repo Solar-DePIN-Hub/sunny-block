@@ -2,7 +2,7 @@
 import { C, G, ctx, input, sfx, sprite, panel, button, drawCoin, wrapLines, starShape, icon, TOUCH, touchOn, ctl, roundRect, inRect, font, clamp } from './core.js';
 import { lerp, lerpColor } from './engine.js';
 import { fmtHour } from './sun.js';
-import { SUN, SUNSET, drawWorld, drawHouse, nightAmount } from './world.js';
+import { SUN, SUNSET, GROUND, drawWorld, drawHouse, nightAmount } from './world.js';
 import { sparkPos } from './actors.js';
 import { NIGHT_START } from './night.js';
 
@@ -159,6 +159,7 @@ export function drawTutorial(S) {
   if (tut.step === 3 && S.sparks[0]) { const q = sparkPos(S.sparks[0]); pointAt(q.x, q.y, null); }
   if (tut.step === 4) { const d = S.drones.find(q => q.state !== 'dead'); if (d) pointAt(d.x, d.y - 30, 'jump on it!'); }
   if (tut.step === 5 && tut.win) pointAt(tut.win.x + 15, tut.win.y + 13, 'tap / drag here');
+  if (tut.step === 6 && tut.surge) { const hs = S.houses[2]; pointAt(hs.x + hs.w / 2, GROUND - 48, null); }
 }
 // ---------- title ----------
 let titleS = null;

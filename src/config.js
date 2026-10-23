@@ -57,5 +57,6 @@ export const CONFIG = {
     { key: 'spark', text: 'Grab the sun spark: run or jump into it', touch: 'Grab the sun spark: run or jump into it' },
     { key: 'drone', text: 'Storm drone! Jump from the roof and land ON it', touch: 'Storm drone! Jump from the roof and land ON it' },
     { key: 'night', text: 'Night, grid OFF: tap or drag over the fading window to power it', touch: 'Night, grid OFF: tap or drag over the fading window to power it' },
+    { key: 'surge', text: 'SURGE! Taps can\'t fix it. Run Solarchik to that house and press E', touch: 'SURGE! Taps can\'t fix it. Run Solarchik to that house and tap ⚡' },
   ],
 };

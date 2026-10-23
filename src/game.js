@@ -3,7 +3,7 @@ import { C, G, canvas, stage, ctx, input, tweens, fx, sfx, loadSave, writeSave, 
 import { startLoop, lerp, easeOutBack, easeOutCubic } from './engine.js';
 import { GROUND, SUNSET, DAY_START, sunFactor, buildHouses, makeClouds, updateWeather, drawWorld, drawHouse, drawStreetBattery, nightAmount, windowAt, slotAt } from './world.js';
 import { makeHero, updateHero, heroDayActions, drawHero, buildSlot, cleanSlot, updateCombo, updateSparks, drawSparks, collectSpark, sparkPos, spawnSpark, spawnDrone, updateDrones, drawDrones, tapDrone, droneHit, dronesFlee, updateFlyers, drawFlyers, drawBolts, solSay, api } from './actors.js';
-import { startNight, updateNight, onNightClick, routeFill, NIGHT_START } from './night.js';
+import { startNight, updateNight, onNightClick, routeFill, resetSurge, NIGHT_START } from './night.js';
 import { BTN, levelCard, upCard, drawHUD, drawBanner, drawSlotTooltip, drawTouch, drawTutorial, drawTitle, drawResult, drawUpgrade, drawFinal, drawPause } from './ui.js';
 import { fmtHour } from './sun.js';
 import { THEME } from './theme.js';
@@ -69,7 +69,12 @@ function tutorialStep(S, dt) {
       tut.win.light = Math.max(0.12, tut.win.light - dt * 0.03);
       if (tut.win.light >= 0.9 && tut.t > 1.2) next();
       break;
-    case 6: if (tut.t > 1.6) finishTutorial(); break;
+    case 6:   // SURGE: only Solarchik can reset it
+      if (!tut.surge) { tut.surge = S.houses[2].wins[0]; tut.surge.surge = 0.001; sfx.alarm(); S.houses[2].jump = 1; }
+      if (tut.surge.surge > 0) tut.surge.light = Math.max(0.3, tut.surge.light - dt * 0.05);
+      else if (tut.t > 0.6) next();
+      break;
+    case 7: if (tut.t > 1.6) finishTutorial(); break;
   }
 }
 
@@ -110,7 +115,7 @@ function sim(dt) {
   if (S.phase === 'day') daySim(S, dt);
   else if (S.phase === 'dusk') { S.t += dt; S.hour = lerp(SUNSET, NIGHT_START(), S.t / C.duskSeconds); if (S.t >= C.duskSeconds) startNight(S); }
   else if (S.phase === 'night') updateNight(S, dt, ctl, endLevel);
-  if (S.tut && S.tut.step === 5) tutorialNight(S, dt);
+  if (S.tut && (S.tut.step === 5 || S.tut.step === 6)) tutorialNight(S, dt);
   updateSparks(S, dt); updateDrones(S, dt); updateCombo(S, dt); updateFlyers(S, dt); updateWeather(S, dt);
   S.houses.forEach(hs => { hs.jump = Math.max(0, hs.jump - dt * 2.2); });
   S.slots.forEach(sp => { sp.glow = Math.max(0, sp.glow - dt); });
@@ -121,7 +126,8 @@ function sim(dt) {
 function tutorialNight(S, dt) {   // routing practice reuses the real night input code
   for (const [id, p] of input.pointers) { if (touchZoneAt(p)) continue; const w = windowAt(S, p.x, p.y); if (w) routeFill(S, w, S.routeMap.get(id) === w ? C.night.holdRate * dt : 1, S.routeMap.get(id) === w ? 'hold' : 'tap'); S.routeMap.set(id, w); }
   const h = S.hero, hs = S.houses.find(q => h.x > q.x - 12 && h.x < q.x + q.w + 12);
-  if (hs && ctl.actionHeld) for (const w of hs.wins) routeFill(S, w, C.night.holdRate * dt, 'hold', { x: h.x, y: h.y - 10 });
+  if (hs && (ctl.actionHeld || ctl.actionPress)) for (const w of hs.wins) { if (w.surge > 0) resetSurge(S, w); routeFill(S, w, C.night.holdRate * dt, 'hold', { x: h.x, y: h.y - 10 }); }
+  for (const w of S.windows) if (w.surge > 0) w.surge += dt;
 }
 function endLevel(S) {
   S.phase = 'done'; G.banner = null;
