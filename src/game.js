@@ -124,7 +124,7 @@ function tutorialNight(S, dt) {   // routing practice reuses the real night inpu
   if (hs && ctl.actionHeld) for (const w of hs.wins) routeFill(S, w, C.night.holdRate * dt, 'hold', { x: h.x, y: h.y - 10 });
 }
 function endLevel(S) {
-  S.phase = 'done';
+  S.phase = 'done'; G.banner = null;
   S.lit = S.nightTot ? S.nightLit / S.nightTot : 0;
   THEME.onLevelEnd(S, api());
   const st = C.stars; S.stars = S.lit >= st[2] ? 3 : S.lit >= st[1] ? 2 : S.lit >= st[0] ? 1 : 0;
@@ -141,7 +141,7 @@ function endLevel(S) {
 function resultNext() {
   const S = G.S;
   if (S.stars <= 0) return startLevel(S.lv);
-  if (S.lv >= 4) { G.mode = 'final'; sfx.win(); return; }
+  if (S.lv >= 4) { G.mode = 'final'; G.banner = null; sfx.win(); return; }
   if (!G.save.picked[S.lv]) {
     const pool = C.upgrades.filter(u => !G.save.ups.includes(u.id)).sort(() => Math.random() - 0.5);
     if (pool.length) { choices = pool.slice(0, 3); G.mode = 'upgrade'; return; }
