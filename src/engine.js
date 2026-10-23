@@ -52,24 +52,42 @@ export function startLoop(update, render) {
   requestAnimationFrame(frame);
 }
 
-// ---------- input (mouse + touch unified, in stage coords) ----------
+// ---------- input (mouse + touch + keyboard, in stage coords) ----------
+// keys = pressed this tick, held = currently down, pointers = every active finger/mouse (multi-touch).
+const GAME_KEYS = new Set([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'enter', 'tab']);
 export function createInput(canvas, stage) {
-  const input = { x: -1, y: -1, clicks: [], down: false };
+  const input = { x: -1, y: -1, clicks: [], down: false, pointers: new Map(), held: new Set(), keys: new Set(), touch: false };
   const toStage = e => {
     const r = canvas.getBoundingClientRect();
     return { x: (e.clientX - r.left) / stage.cssScale, y: (e.clientY - r.top) / stage.cssScale };
   };
-  canvas.addEventListener('pointermove', e => { const p = toStage(e); input.x = p.x; input.y = p.y; });
-  canvas.addEventListener('pointerdown', e => { const p = toStage(e); input.x = p.x; input.y = p.y; input.down = true; input.clicks.push(p); e.preventDefault(); });
-  window.addEventListener('pointerup', () => { input.down = false; });
-  input.keys = new Set();
-  window.addEventListener('keydown', e => {
-    const k = e.key.toLowerCase(); if (k === ' ' || k === 'enter') e.preventDefault();
-    if (!e.repeat) input.keys.add(k);
+  canvas.addEventListener('pointerdown', e => {
+    const p = toStage(e);
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') input.touch = true; else if (e.pointerType === 'mouse') input.touch = false;
+    input.x = p.x; input.y = p.y; input.pointers.set(e.pointerId, { x: p.x, y: p.y, id: e.pointerId });
+    input.down = true; input.clicks.push({ x: p.x, y: p.y, id: e.pointerId });
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    e.preventDefault();
   });
+  canvas.addEventListener('pointermove', e => {
+    const p = toStage(e); input.x = p.x; input.y = p.y;
+    const q = input.pointers.get(e.pointerId); if (q) { q.x = p.x; q.y = p.y; }
+  });
+  const up = e => { input.pointers.delete(e.pointerId); input.down = input.pointers.size > 0; };
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !input.down) { input.x = -1; input.y = -1; } });
+  const norm = k => (k === 'Spacebar' ? ' ' : k.length === 1 ? k.toLowerCase() : k.toLowerCase());
+  window.addEventListener('keydown', e => {
+    const k = norm(e.key); if (GAME_KEYS.has(k)) e.preventDefault();
+    if (!e.repeat) input.keys.add(k);
+    input.held.add(k);
+  });
+  window.addEventListener('keyup', e => { input.held.delete(norm(e.key)); });
+  window.addEventListener('blur', () => { input.held.clear(); input.pointers.clear(); input.down = false; });
   input.consumeKey = k => { if (input.keys.has(k)) { input.keys.delete(k); return true; } return false; };
-  input.endFrame = () => input.keys.clear(); // unhandled keys must not leak into the next screen
-  canvas.addEventListener('pointerleave', () => { input.x = -1; input.y = -1; });
+  input.pressed = (...ks) => ks.some(k => input.keys.has(k));
+  input.isHeld = (...ks) => ks.some(k => input.held.has(k));
+  input.endFrame = () => input.keys.clear(); // unhandled presses must not leak into the next tick
   return input;
 }
 
@@ -123,29 +141,81 @@ export function createFx() {
   };
 }
 
-// ---------- audio: synthesized blips, no files ----------
+// ---------- audio: synthesized sfx + a tiny procedural music sequencer (no audio files) ----------
+const mf = m => 440 * Math.pow(2, (m - 69) / 12);
+const MUSIC = {
+  day: { bpm: 108, chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], roots: [48, 45, 41, 43], lead: [72, 0, 76, 0, 79, 0, 76, 74, 72, 0, 69, 0, 67, 0, 69, 0] },
+  night: { bpm: 116, tensionBpm: 44, chords: [[57, 60, 64], [53, 57, 60], [50, 53, 57], [52, 56, 59]], roots: [45, 41, 38, 40], lead: [69, 0, 0, 72, 0, 0, 71, 0, 69, 0, 0, 64, 0, 0, 68, 0] },
+  title: { bpm: 96, chords: [[60, 64, 67], [53, 57, 60], [57, 60, 64], [55, 59, 62]], roots: [48, 41, 45, 43], lead: [] },
+};
 export function createAudio() {
-  let ac = null, muted = store.get('sb-muted') === '1';
-  const ensure = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { ac = null; } } if (ac && ac.state === 'suspended') ac.resume(); return ac; };
-  function tone(freq, dur = 0.12, type = 'sine', vol = 0.15, slide = 0, delay = 0) {
-    if (muted) return; const a = ensure(); if (!a) return;
-    const t0 = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  let ac = null, out = null, noiseBuf = null, muted = store.get('sb-muted') === '1';
+  const ensure = () => {
+    if (!ac) {
+      try {
+        ac = new (window.AudioContext || window.webkitAudioContext)(); out = ac.createGain(); out.gain.value = 0.9; out.connect(ac.destination);
+        noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      } catch { ac = null; }
+    }
+    if (ac && ac.state === 'suspended') ac.resume(); return ac;
+  };
+  function toneAt(t0, freq, dur = 0.12, type = 'sine', vol = 0.15, slide = 0) {
+    const o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t0); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t0 + dur);
     g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    o.connect(g).connect(out); o.start(t0); o.stop(t0 + dur + 0.02);
   }
+  function noiseAt(t0, dur = 0.08, vol = 0.05, freq = 3000) {
+    const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = freq; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    s.connect(f).connect(g).connect(out); s.start(t0); s.stop(t0 + dur + 0.02);
+  }
+  function tone(freq, dur, type, vol, slide = 0, delay = 0) { if (muted) return; const a = ensure(); if (!a) return; toneAt(a.currentTime + delay, freq, dur, type, vol, slide); }
+  function noise(dur, vol, freq, delay = 0) { if (muted) return; const a = ensure(); if (!a) return; noiseAt(a.currentTime + delay, dur, vol, freq); }
+  // music: look-ahead scheduler, 16th-note steps
+  const mus = { kind: null, tension: 0, step: 0, next: 0 };
+  function playStep(P, s, t, tension) {
+    const bar = (s >> 4) % 4, i = s % 16, ch = P.chords[bar], V = 0.8;
+    if (i % 8 === 0 || (tension > 0.55 && i % 4 === 0)) toneAt(t, mf(P.roots[bar]), 0.32, 'triangle', 0.09 * V);
+    if (i % 2 === 0) toneAt(t, mf(ch[(i / 2) % 3] + 12 * ((i >> 3) & 1) + 12), 0.11, P === MUSIC.night ? 'triangle' : 'square', (P === MUSIC.night ? 0.035 : 0.016) * V);
+    const ln = P.lead[i]; if (ln && (s >> 6) % 2 === 1) toneAt(t, mf(ln), 0.22, 'sine', 0.04 * V);
+    if (i % 4 === 2) noiseAt(t, 0.04, (0.012 + tension * 0.02) * V, 6000);
+    if (P === MUSIC.night && tension > 0.75 && i % 2 === 1) noiseAt(t, 0.03, 0.01, 8000);
+  }
+  setInterval(() => {
+    if (!ac || muted || !mus.kind || ac.state !== 'running') { if (ac) mus.next = ac.currentTime + 0.05; return; }
+    const P = MUSIC[mus.kind], spb = 60 / (P.bpm + (P.tensionBpm || 0) * mus.tension) / 4;
+    if (mus.next < ac.currentTime) mus.next = ac.currentTime + 0.05;
+    while (mus.next < ac.currentTime + 0.18) { playStep(P, mus.step, mus.next, mus.tension); mus.next += spb; mus.step++; }
+  }, 40);
+  let lastRoute = 0;
   return {
     unlock: ensure,
     get muted() { return muted; },
     toggle() { muted = !muted; store.set('sb-muted', muted ? '1' : '0'); },
+    music(kind) { if (mus.kind !== kind) { mus.kind = kind; mus.step = 0; } },
+    set tension(v) { mus.tension = v; },
     place() { tone(520, 0.08, 'square', 0.08); tone(780, 0.12, 'triangle', 0.1, 0, 0.06); },
-    coin() { tone(988, 0.07, 'square', 0.06); tone(1319, 0.14, 'square', 0.06, 0, 0.07); },
-    spark() { tone(1200, 0.15, 'sine', 0.1, 600); tone(1800, 0.1, 'triangle', 0.05, 0, 0.05); },
-    charge() { tone(880, 0.08, 'triangle', 0.05, 300); },
-    deny() { tone(180, 0.18, 'sawtooth', 0.08, -60); },
+    coin() { tone(988, 0.07, 'square', 0.05); tone(1319, 0.14, 'square', 0.05, 0, 0.07); },
+    spark(n = 0) { const f = 900 * Math.pow(2, Math.min(n, 18) / 12); tone(f, 0.13, 'sine', 0.1, f * 0.5); tone(f * 1.5, 0.09, 'triangle', 0.05, 0, 0.04); },
+    comboUp(t) { [0, 4, 7, 12].forEach((s, i) => tone(mf(72 + t * 2 + s), 0.14, 'square', 0.05, 0, i * 0.05)); },
+    charge() { tone(880, 0.08, 'triangle', 0.04, 300); },
+    deny() { tone(180, 0.18, 'sawtooth', 0.07, -60); },
+    jump() { tone(330, 0.12, 'square', 0.04, 260); },
+    land() { noise(0.05, 0.03, 900); },
+    stomp() { tone(200, 0.16, 'square', 0.1, -120); noise(0.12, 0.08, 1500); tone(660, 0.12, 'triangle', 0.07, 400, 0.06); },
+    zap() { tone(1400, 0.08, 'sawtooth', 0.04, -900); },
+    hurt() { tone(300, 0.25, 'sawtooth', 0.09, -220); },
+    splat() { noise(0.25, 0.07, 400); tone(140, 0.3, 'sine', 0.08, -60); },
+    clean() { [1200, 1500, 1800].forEach((f, i) => tone(f, 0.06, 'sine', 0.05, 0, i * 0.04)); },
+    alarm() { tone(880, 0.12, 'square', 0.05); tone(660, 0.12, 'square', 0.05, 0, 0.14); },
+    windowOff() { tone(330, 0.35, 'sawtooth', 0.06, -200); },
+    route() { if (!ac || ac.currentTime - lastRoute < 0.07) { ensure(); if (ac && ac.currentTime - lastRoute < 0.07) return; } lastRoute = ac ? ac.currentTime : 0; tone(600 + Math.random() * 300, 0.07, 'sawtooth', 0.03, 500); },
     deal() { [523, 659, 784].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.06)); },
-    dark() { tone(220, 0.4, 'sawtooth', 0.08, -150); },
+    dark() { tone(220, 0.5, 'sawtooth', 0.08, -150); },
     win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, 'triangle', 0.12, 0, i * 0.12)); },
+    lose() { [392, 330, 262].forEach((f, i) => tone(f, 0.3, 'triangle', 0.1, 0, i * 0.16)); },
+    star(i) { tone(mf(76 + i * 4), 0.25, 'square', 0.06); tone(mf(88 + i * 4), 0.2, 'sine', 0.05, 0, 0.05); },
     tick() { tone(660, 0.04, 'square', 0.04); },
   };
 }
