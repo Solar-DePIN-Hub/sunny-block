@@ -214,7 +214,7 @@ export function drawResult(S, R) {
   ctx.font = font(600, 13); ctx.fillStyle = '#b8bdd6'; ctx.fillText(`${S.L.day} · ${S.L.name}`, cx, cy + 72);
   for (let i = 0; i < 3; i++) { const s = R.stars[i] || 0; if (s > 0) starShape(cx - 70 + i * 70, cy + 122, 28, i < S.stars, (1 - s) * 0.8, s * (i < S.stars ? 1 : 0.85)); }
   ctx.fillStyle = '#fff'; ctx.font = font(900, 28); ctx.fillText(`${Math.round((R.litShown || 0) * 100)}% of the night lit`, cx, cy + 192);
-  ctx.font = font(700, 12); ctx.fillStyle = '#aab0cc'; ctx.fillText(`stars at ${C.stars.map(s => Math.round(s * 100) + '%').join(' · ')}   ·   score ${S.score}${S.score > S.prevBest && S.prevBest > 0 ? ' NEW BEST!' : S.prevBest ? ` (best ${S.prevBest})` : ''}`, cx, cy + 212);
+  ctx.font = font(700, 12); ctx.fillStyle = '#aab0cc'; ctx.fillText(`stars at ${(S.L.stars || C.stars).map(s => Math.round(s * 100) + '%').join(' · ')}   ·   score ${S.score}${S.score > S.prevBest && S.prevBest > 0 ? ' NEW BEST!' : S.prevBest ? ` (best ${S.prevBest})` : ''}`, cx, cy + 212);
   const stats = [[`${S.stats.sparks}`, 'sparks'], [`${S.stats.maxCombo}`, 'best combo'], [`${S.stats.drones}`, 'drones beaten'], [`${S.stats.resets || 0}/${S.stats.surges || 0}`, 'surges reset']];
   stats.forEach(([v, l], i) => {
     const w = 132, x = cx - 276 + i * 140, y = cy + 228;

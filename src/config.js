@@ -17,7 +17,7 @@ export const CONFIG = {
   leech: { speed: 120, drain: 0.4, hp: 1, coins: 8 },   // THU/FRI: flies to the street battery and siphons kWh until stomped
   cleanTime: 0.3, cleanTaps: 2,
   night: { startLight: 0.75, fillKwh: 0.42, overhead: 0.06, relight: 0.5, holdRate: 2.6, surgeDrain: 0.17, low: 0.3, pointerLoss: 1.25, resetBonus: 0.35 },   // pointer routing loses 25% on the line; Solarchik delivers lossless and is the only one who can reset a SURGE
-  stars: [0.55, 0.78, 0.93],            // share of window-time lit during the night
+  stars: [0.55, 0.78, 0.93],            // default share of window-time lit during the night; levels may override (harder nights = lower bars)
 
   houses: [
     { name: "Solarchik's", color: '#f4a261', roof: '#9c4a2f', slots: 2, you: true },
@@ -31,11 +31,11 @@ export const CONFIG = {
 
   // 5 day-levels. weather = cloud cover sampled across the day; waves = [second, drones].
   levels: [
-    { day: 'MON', name: 'Sunny start', houses: 4, dayS: 48, nightS: 22, coins: 40, weather: [0.05, 0.05, 0.15, 0.05, 0.1], waves: [[14, 1], [30, 2]], droneSpeed: 1, drain: [0.07, 0.12], surgeEvery: 7 },
-    { day: 'TUE', name: 'Breezy', houses: 5, dayS: 52, nightS: 24, coins: 40, weather: [0.1, 0.3, 0.1, 0.25, 0.1], waves: [[10, 1], [24, 2], [38, 2]], droneSpeed: 1.1, drain: [0.08, 0.13], surgeEvery: 6 },
-    { day: 'WED', name: 'Cloud front', houses: 5, dayS: 56, nightS: 26, coins: 45, weather: [0.2, 0.45, 0.6, 0.3, 0.2], waves: [[8, 2], [22, 2], [38, 3]], droneSpeed: 1.2, drain: [0.08, 0.14], surgeEvery: 5.5 },
-    { day: 'THU', name: 'Storm watch', houses: 6, dayS: 60, nightS: 28, coins: 50, weather: [0.1, 0.35, 0.5, 0.65, 0.3], waves: [[7, 2], [19, 3], [27, 1, 'leech'], [32, 3], [46, 3]], droneSpeed: 1.3, drain: [0.085, 0.14], surgeEvery: 5 },
-    { day: 'FRI', name: 'The big storm', houses: 6, dayS: 64, nightS: 30, coins: 55, weather: [0.3, 0.5, 0.7, 0.5, 0.3], waves: [[6, 2], [17, 3], [23, 1, 'leech'], [29, 4], [42, 4], [48, 1, 'leech'], [54, 3]], droneSpeed: 1.45, drain: [0.09, 0.145], surgeEvery: 4.5 },
+    { day: 'MON', name: 'Sunny start', houses: 4, dayS: 48, nightS: 22, coins: 40, weather: [0.05, 0.05, 0.15, 0.05, 0.1], waves: [[14, 1], [30, 2]], droneSpeed: 1, drain: [0.07, 0.12], surgeEvery: 7, stars: [0.55, 0.78, 0.93] },
+    { day: 'TUE', name: 'Breezy', houses: 5, dayS: 52, nightS: 24, coins: 40, weather: [0.1, 0.3, 0.1, 0.25, 0.1], waves: [[10, 1], [24, 2], [38, 2]], droneSpeed: 1.1, drain: [0.08, 0.13], surgeEvery: 6, stars: [0.5, 0.72, 0.88] },
+    { day: 'WED', name: 'Cloud front', houses: 5, dayS: 56, nightS: 26, coins: 45, weather: [0.2, 0.45, 0.6, 0.3, 0.2], waves: [[8, 2], [22, 2], [38, 3]], droneSpeed: 1.2, drain: [0.08, 0.14], surgeEvery: 5.5, stars: [0.45, 0.66, 0.82] },
+    { day: 'THU', name: 'Storm watch', houses: 6, dayS: 60, nightS: 28, coins: 50, weather: [0.1, 0.35, 0.5, 0.65, 0.3], waves: [[7, 2], [19, 3], [27, 1, 'leech'], [32, 3], [46, 3]], droneSpeed: 1.3, drain: [0.085, 0.14], surgeEvery: 5, stars: [0.4, 0.6, 0.75] },
+    { day: 'FRI', name: 'The big storm', houses: 6, dayS: 64, nightS: 30, coins: 55, weather: [0.3, 0.5, 0.7, 0.5, 0.3], waves: [[6, 2], [17, 3], [23, 1, 'leech'], [29, 4], [42, 4], [48, 1, 'leech'], [54, 3]], droneSpeed: 1.45, drain: [0.09, 0.145], surgeEvery: 4.5, stars: [0.38, 0.56, 0.72] },
   ],
   tutorialLevel: { day: 'TUT', name: 'Training yard', houses: 3, dayS: 9999, nightS: 9999, coins: 50, weather: [0.05], waves: [], droneSpeed: 1, drain: [0, 0], surgeEvery: 999 },
 

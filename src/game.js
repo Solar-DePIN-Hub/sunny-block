@@ -134,7 +134,7 @@ function endLevel(S) {
   S.phase = 'done'; G.banner = null;
   S.lit = S.nightTot ? S.nightLit / S.nightTot : 0;
   THEME.onLevelEnd(S, api());
-  const st = C.stars; S.stars = S.lit >= st[2] ? 3 : S.lit >= st[1] ? 2 : S.lit >= st[0] ? 1 : 0;
+  const st = S.L.stars || C.stars; S.stars = S.lit >= st[2] ? 3 : S.lit >= st[1] ? 2 : S.lit >= st[0] ? 1 : 0;
   S.score = Math.round(S.lit * 1000 + S.coins + S.stats.maxCombo * 10 + S.stats.drones * 20);   // unspent coins count: saving vs building is a real choice
   S.prevBest = G.save.best[S.lv] || 0;
   const sv = G.save; sv.stars[S.lv] = Math.max(sv.stars[S.lv], S.stars); sv.best[S.lv] = Math.max(sv.best[S.lv], S.score);
