@@ -1,10 +1,10 @@
 # Sunny Block: a Solarchik game
 
-Help **Solarchik**, the little solar robot, power his street with the sun. Install panels on the neighbours' roofs, catch sun sparks, chase off storm drones and trade energy with the robot neighbours. Prices follow the weather. At sunset the grid switches off, and the street battery has to keep every window lit until 22:00.
+Help **Solarchik**, the little solar robot, power his street with the sun. Install panels on the neighbours' roofs, catch sun sparks, chase off storm drones and trade energy with the robot neighbours. A sun spark always pays: it adds 1.5 kWh to the battery, and whatever doesn't fit in a full battery is sold for coins at the feed-in price, the same rule the panels use for their surplus. Prices follow the weather. At sunset the grid switches off, and the street battery has to keep every window lit until 22:00.
 
 - **Real sun:** the sun follows today's real solar arc for Kyiv (latitude 50.45°), computed from the date (solar declination and hour angle), so days get shorter in winter.
 - **Weather economy:** an hourly forecast (sunny, partly, cloudy, rain) drives both how much the panels produce and the grid price. Neighbours offer to buy or sell kWh at prices tied to the weather.
-- **Short sessions:** one day takes about 3 minutes (Space for x3 speed). There's a daily seed (same sky for everyone today) or a random day. Best score is saved locally, and you can copy your result to share it.
+- **Short sessions:** one day takes about 3 minutes (Space for x3 speed, Space/Enter also starts a day or replays it, M toggles sound). There's a daily seed (same sky for everyone today) or a random day. Best score is saved locally, and you can copy your result to share it.
 - **No build step:** plain HTML5 canvas and ES modules. Sounds are synthesized with WebAudio, so there are no audio files.
 
 ## Run

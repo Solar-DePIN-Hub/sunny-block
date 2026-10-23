@@ -10,6 +10,13 @@ export function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+export const font = (weight, size) => `${weight} ${size}px ${FONT}`;
+// localStorage can throw (private mode, sandboxed itch.io iframes): never let it crash the game.
+export const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
+};
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
@@ -56,8 +63,13 @@ export function createInput(canvas, stage) {
   canvas.addEventListener('pointerdown', e => { const p = toStage(e); input.x = p.x; input.y = p.y; input.down = true; input.clicks.push(p); e.preventDefault(); });
   window.addEventListener('pointerup', () => { input.down = false; });
   input.keys = new Set();
-  window.addEventListener('keydown', e => input.keys.add(e.key.toLowerCase()));
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase(); if (k === ' ' || k === 'enter') e.preventDefault();
+    if (!e.repeat) input.keys.add(k);
+  });
   input.consumeKey = k => { if (input.keys.has(k)) { input.keys.delete(k); return true; } return false; };
+  input.endFrame = () => input.keys.clear(); // unhandled keys must not leak into the next screen
+  canvas.addEventListener('pointerleave', () => { input.x = -1; input.y = -1; });
   return input;
 }
 
@@ -87,21 +99,24 @@ export function createFx() {
         parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - speed * 0.4, life, max: life, color, size: size * (0.6 + Math.random() * 0.8), g: gravity });
       }
     },
-    text(x, y, str, color = '#fff', size = 18) { texts.push({ x, y, str, color, size, life: 1.1, max: 1.1 }); },
+    text(x, y, str, color = '#fff', size = 18, life = 1.2) { texts.push({ x, y, str, color, size, life, max: life }); },
     shake(a) { shake = Math.max(shake, a); },
     update(dt) {
       for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.life -= dt; p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.life <= 0) parts.splice(i, 1); }
-      for (let i = texts.length - 1; i >= 0; i--) { const t = texts[i]; t.life -= dt; t.y -= 40 * dt; if (t.life <= 0) texts.splice(i, 1); }
+      for (let i = texts.length - 1; i >= 0; i--) { const t = texts[i]; t.life -= dt; t.y -= 34 * dt; if (t.life <= 0) texts.splice(i, 1); }
       shake = Math.max(0, shake - dt * 30);
     },
     offset() { return shake > 0 ? { x: (Math.random() - 0.5) * shake, y: (Math.random() - 0.5) * shake } : { x: 0, y: 0 }; },
     draw(ctx) {
       for (const p of parts) { ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
       ctx.globalAlpha = 1; ctx.textAlign = 'center';
+      ctx.lineJoin = 'round';
       for (const t of texts) {
-        const k = t.life / t.max; ctx.globalAlpha = clamp(k * 1.5, 0, 1);
-        ctx.font = `800 ${t.size}px system-ui, sans-serif`; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.55)';
-        ctx.strokeText(t.str, t.x, t.y); ctx.fillStyle = t.color; ctx.fillText(t.str, t.x, t.y);
+        const k = t.life / t.max, age = t.max - t.life, pop = age < 0.18 ? easeOutBack(age / 0.18) : 1;
+        ctx.globalAlpha = clamp(k * 2.2, 0, 1);
+        ctx.save(); ctx.translate(t.x, t.y); ctx.scale(pop, pop);
+        ctx.font = font(800, t.size); ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(12,16,40,.7)';
+        ctx.strokeText(t.str, 0, 0); ctx.fillStyle = t.color; ctx.fillText(t.str, 0, 0); ctx.restore();
       }
       ctx.globalAlpha = 1;
     },
@@ -110,7 +125,7 @@ export function createFx() {
 
 // ---------- audio: synthesized blips, no files ----------
 export function createAudio() {
-  let ac = null, muted = localStorage.getItem('sb-muted') === '1';
+  let ac = null, muted = store.get('sb-muted') === '1';
   const ensure = () => { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { ac = null; } } if (ac && ac.state === 'suspended') ac.resume(); return ac; };
   function tone(freq, dur = 0.12, type = 'sine', vol = 0.15, slide = 0, delay = 0) {
     if (muted) return; const a = ensure(); if (!a) return;
@@ -122,10 +137,11 @@ export function createAudio() {
   return {
     unlock: ensure,
     get muted() { return muted; },
-    toggle() { muted = !muted; localStorage.setItem('sb-muted', muted ? '1' : '0'); },
+    toggle() { muted = !muted; store.set('sb-muted', muted ? '1' : '0'); },
     place() { tone(520, 0.08, 'square', 0.08); tone(780, 0.12, 'triangle', 0.1, 0, 0.06); },
     coin() { tone(988, 0.07, 'square', 0.06); tone(1319, 0.14, 'square', 0.06, 0, 0.07); },
-    spark() { tone(1200, 0.15, 'sine', 0.1, 600); },
+    spark() { tone(1200, 0.15, 'sine', 0.1, 600); tone(1800, 0.1, 'triangle', 0.05, 0, 0.05); },
+    charge() { tone(880, 0.08, 'triangle', 0.05, 300); },
     deny() { tone(180, 0.18, 'sawtooth', 0.08, -60); },
     deal() { [523, 659, 784].forEach((f, i) => tone(f, 0.12, 'triangle', 0.1, 0, i * 0.06)); },
     dark() { tone(220, 0.4, 'sawtooth', 0.08, -150); },
@@ -136,6 +152,7 @@ export function createAudio() {
 
 // ---------- drawing helpers ----------
 export function roundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2)); // arcTo misbehaves when r > half the size (e.g. a nearly empty bar)
   ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
