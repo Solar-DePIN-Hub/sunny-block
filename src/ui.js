@@ -246,13 +246,15 @@ function resultTip(S) {
 export function drawUpgrade(choices) {
   ctx.fillStyle = 'rgba(8,11,32,.8)'; ctx.fillRect(0, 0, C.W, C.H);
   ctx.textAlign = 'center'; ctx.fillStyle = '#ffd166'; ctx.font = font(900, 34); ctx.fillText('Pick an upgrade', C.W / 2, 96);
-  ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 15); ctx.fillText('It stays with Solarchik for the rest of the week', C.W / 2, 124);
+  ctx.fillStyle = '#c9cde3'; ctx.font = font(600, 15); ctx.fillText('Stronger days or safer nights? It stays with Solarchik all week', C.W / 2, 124);
   choices.forEach((u, i) => {
     const r = upCard(i), hover = inRect({ x: input.x, y: input.y }, r) && !input.touch, y = r.y - (hover ? 4 : 0);
     ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 16; roundRect(ctx, r.x, y, r.w, r.h, 20); ctx.fillStyle = hover ? '#fffaf0' : '#f3e6c4'; ctx.fill(); ctx.restore();
     roundRect(ctx, r.x, y, r.w, r.h, 20); ctx.strokeStyle = hover ? '#ffb703' : '#c9a24a'; ctx.lineWidth = hover ? 4 : 2.5; ctx.stroke();
     ctx.fillStyle = '#1d2240'; ctx.beginPath(); ctx.arc(r.x + r.w / 2, y + 66, 40, 0, 7); ctx.fill();
     icon(u.icon, r.x + r.w / 2, y + 66, 1.5);
+    const tag = u.night ? 'NIGHT' : 'DAY'; ctx.font = font(900, 11); const tw = ctx.measureText(tag).width + 16;
+    roundRect(ctx, r.x + 12, y + 12, tw, 18, 9); ctx.fillStyle = u.night ? '#2b2f6b' : '#ffb703'; ctx.fill(); ctx.fillStyle = u.night ? '#c8d6ff' : '#1d2240'; ctx.textAlign = 'center'; ctx.fillText(tag, r.x + 12 + tw / 2, y + 25);
     ctx.fillStyle = '#1d2240'; ctx.font = font(900, 20); ctx.textAlign = 'center'; ctx.fillText(u.name, r.x + r.w / 2, y + 138);
     ctx.font = font(600, 14); ctx.fillStyle = '#4a4f66'; wrapLines(u.desc, r.w - 30).forEach((l, j) => ctx.fillText(l, r.x + r.w / 2, y + 164 + j * 18));
     ctx.font = font(800, 12); ctx.fillStyle = '#9c6b00'; ctx.fillText(`press ${i + 1} or tap`, r.x + r.w / 2, y + r.h - 14);

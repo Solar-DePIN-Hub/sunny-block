@@ -90,10 +90,39 @@ function drawClouds(S, night) {
   ctx.strokeStyle = 'rgba(190,210,255,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); S.rain.forEach(r => { ctx.moveTo(r.x, r.y); ctx.lineTo(r.x - 3, r.y + 11); }); ctx.stroke();
 }
 export const nightAmount = h => clamp((2 - elevation(C.latitude, DOY, h)) / 8, 0, 1);
+// ---------- distant skyline (2 parallax layers + wind turbines), generated once ----------
+const SKY_LAYERS = (() => {
+  let seed = 7; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  return [{ k: 0.025, base: 52, col: ['#1a2350', '#c4dcef'], lit: 0.18, b: [] }, { k: 0.06, base: 34, col: ['#141b40', '#9cc3e2'], lit: 0.28, b: [] }].map((L, li) => {
+    for (let x = -60; x < C.W + 60;) { const w = 26 + r() * (li ? 44 : 34), hgt = (li ? 36 : 60) + r() * (li ? 50 : 66); L.b.push({ x, w, h: hgt, turbine: !li && r() < 0.12, win: Array.from({ length: 12 }, () => r()) }); x += w + 2 + r() * 10; }
+    return L;
+  });
+})();
+function drawSkyline(dayT, S, nightK) {
+  const hx = S && S.hero ? S.hero.x - C.W / 2 : 0, T = G.t;
+  for (const L of SKY_LAYERS) {
+    const ox = -hx * L.k, col = lerpColor(L.col[0], L.col[1], dayT), y0 = GROUND - L.base;
+    ctx.fillStyle = col;
+    for (const b of L.b) {
+      const x = b.x + ox;
+      if (b.turbine) {   // a small wind turbine instead of a building
+        ctx.fillRect(x + b.w / 2 - 1.5, y0 - b.h - 10, 3, b.h + 10); ctx.save(); ctx.translate(x + b.w / 2, y0 - b.h - 10); ctx.rotate(T * 1.2 + b.x);
+        for (let k = 0; k < 3; k++) { ctx.rotate(2.094); ctx.fillRect(-1.5, 0, 3, 24); } ctx.restore(); ctx.fillStyle = col; continue;
+      }
+      ctx.fillRect(x, y0 - b.h, b.w, b.h + L.base);
+      if (nightK > 0.2) {   // a few warm windows far away
+        ctx.fillStyle = `rgba(255,214,120,${L.lit * nightK})`;
+        for (let i = 0; i < b.win.length; i++) if (b.win[i] < 0.35) ctx.fillRect(x + 5 + (i % 3) * ((b.w - 12) / 2.2), y0 - b.h + 8 + ((i / 3) | 0) * 14, 4, 5);
+        ctx.fillStyle = col;
+      }
+    }
+  }
+}
 export function drawWorld(h, S) {
   const el = elevation(C.latitude, DOY, h);
   drawSky(h, S ? S.cloud : 0); if (S) drawClouds(S, el < -2);
   const dayT = clamp((el + 6) / 12, 0, 1);
+  drawSkyline(dayT, S, 1 - dayT);
   ctx.fillStyle = lerpColor('#1a2440', '#9bd18a', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 70 - Math.sin(x / 170 + 1) * 22); ctx.lineTo(C.W, GROUND); ctx.fill();
   ctx.fillStyle = lerpColor('#1b2a3a', '#72bb62', dayT); ctx.beginPath(); ctx.moveTo(0, GROUND); for (let x = 0; x <= C.W; x += 30) ctx.lineTo(x, GROUND - 40 - Math.sin(x / 120) * 18); ctx.lineTo(C.W, GROUND); ctx.fill();
   const gg = ctx.createLinearGradient(0, GROUND, 0, GROUND + 50); gg.addColorStop(0, lerpColor('#24352a', '#62b357', dayT)); gg.addColorStop(1, lerpColor('#1b2820', '#4d9a45', dayT));

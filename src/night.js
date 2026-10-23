@@ -54,20 +54,22 @@ function heroRouting(S, dt, ctl) {
   if (!hs || !ctl.actionHeld) { S.heroRoute = null; return hs; }
   const fresh = ctl.actionPress || S.heroRoute !== hs; S.heroRoute = hs;
   for (const w of hs.wins) if (w.surge > 0 && !w.dark) resetSurge(S, w);
-  for (const w of hs.wins) routeFill(S, w, fresh ? C.night.holdRate * dt * 4 : C.night.holdRate * dt, fresh ? 'tap' : 'hold', { x: h.x, y: h.y - 10 });
+  const hr = C.night.holdRate * dt * (has('sprint') ? 1.5 : 1);
+  for (const w of hs.wins) routeFill(S, w, fresh ? hr * 4 : hr, fresh ? 'tap' : 'hold', { x: h.x, y: h.y - 10 });
   return hs;
 }
-export function resetSurge(S, w) {
+export function resetSurge(S, w, auto = false) {
   w.surge = 0; w.light = Math.min(1, w.light + C.night.resetBonus); w.fillFx = 1; S.stats.resets = (S.stats.resets || 0) + 1;
   const hs = S.houses[w.house]; hs.jump = 1; hs.mood = 0;
   fx.text(w.x + w.w / 2, w.y - 16, 'Reset!', '#80ed99', 18); fx.burst(w.x + w.w / 2, w.y + w.h / 2, '#80ed99', 18, 160, 0.5, 3, 0); sfx.reset(); fx.shake(3);
-  solSay(S, 'Breaker reset!', 1.1);
+  if (!auto) solSay(S, 'Breaker reset!', 1.1);
 }
 export function updateNight(S, dt, ctl, endLevel) {
   S.t += dt; const prog = Math.min(1, S.t / S.L.nightS); S.hour = lerp(NIGHT_START(), C.nightEndHour, prog);
   const esc = 1 + 0.7 * prog;
   for (const w of S.windows) {
-    w.fillFx = Math.max(0, w.fillFx - dt * 3); if (w.surge > 0) { const b = Math.floor(w.surge / 1.1); w.surge += dt; if (Math.floor(w.surge / 1.1) !== b) sfx.surge(); }   // a surge lasts until Solarchik resets it (or the window dies)
+    w.fillFx = Math.max(0, w.fillFx - dt * 3); if (w.surge > 0) { const b = Math.floor(w.surge / 1.1); w.surge += dt; if (Math.floor(w.surge / 1.1) !== b) sfx.surge();
+      if (has('shield') && (S.shieldUsed || 0) < 2 && w.surge > 0.8 && !w.dark) { S.shieldUsed = (S.shieldUsed || 0) + 1; fx.text(w.x + w.w / 2, w.y - 40, 'Shield!', '#80ed99', 16); resetSurge(S, w, true); } }   // a surge lasts until Solarchik resets it (or the window dies)
     if (w.dark) continue;
     if (w.delay > 0) { w.delay -= dt; continue; }
     w.light -= (w.drain * esc + (w.surge > 0 ? C.night.surgeDrain : 0)) * dt;

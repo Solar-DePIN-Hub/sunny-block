@@ -1,7 +1,7 @@
 // Solarchik (player), sun sparks, combos, storm drones, flyers and bolts.
 import { C, G, ctx, fx, sfx, tweens, sprite, has, rnd, font, roundRect, clamp, showBanner } from './core.js';
 import { lerp, easeOutBack, easeOutCubic } from './engine.js';
-import { GROUND, sunFactor } from './world.js';
+import { GROUND, sunFactor, batteryPos } from './world.js';
 import { THEME } from './theme.js';
 
 export const api = () => ({ C, G, fx, sfx, showBanner, spawnSpark, spawnDrone, hitCombo, buildSlot });
@@ -10,12 +10,14 @@ export const api = () => ({ C, G, fx, sfx, showBanner, spawnSpark, spawnDrone, h
 export function makeHero(x) { return { x, y: GROUND, vx: 0, vy: 0, onGround: true, plat: null, coyote: 0, buf: 0, jumps: 0, facing: 1, frame: 0, stun: 0, inv: 0, sq: 0, say: null, sayT: 0, bounced: false, airT: 0 }; }
 export function solSay(S, t, dur = 1.6) { S.hero.say = t; S.hero.sayT = dur; }
 const heroCY = h => h.y - 30;
+const lerpN = (a, b, t) => a + (b - a) * t;
 
 export function updateHero(S, dt, ctl) {
   const h = S.hero, P = C.hero;
   h.stun = Math.max(0, h.stun - dt); h.inv = Math.max(0, h.inv - dt); h.sq *= Math.pow(0.0005, dt); h.sayT -= dt; if (h.sayT <= 0) h.say = null;
   const dir = h.stun > 0 ? 0 : (ctl.right ? 1 : 0) - (ctl.left ? 1 : 0);
-  if (dir) { h.vx = clamp(h.vx + dir * (h.onGround ? P.accel : P.airAccel) * dt, -P.speed, P.speed); h.facing = dir; }
+  const vmax = P.speed * (S.phase === 'night' && has('sprint') ? 1.4 : 1);
+  if (dir) { h.vx = clamp(h.vx + dir * (h.onGround ? P.accel : P.airAccel) * dt, -vmax, vmax); h.facing = dir; }
   else { const f = P.friction * dt * (h.onGround ? 1 : 0.4); h.vx = Math.abs(h.vx) <= f ? 0 : h.vx - Math.sign(h.vx) * f; }
   if (ctl.jumpPress) h.buf = P.buffer; else h.buf -= dt;
   h.coyote = h.onGround ? P.coyote : h.coyote - dt;
@@ -180,6 +182,7 @@ export function spawnDrone(S, opts = {}) {
   const side = opts.side ?? (Math.random() < 0.5 ? -1 : 1);
   const d = { x: opts.x ?? (side < 0 ? -60 : C.W + 60), y: opts.y ?? rnd(95, 150), state: 'seek', target: null, tx: C.W / 2, ty: 140, t: 0, rest: 0.3, wander: 0,
     hp: opts.hp ?? C.drone.hp, bob: Math.random() * 6, hit: 0, die: 0, still: !!opts.still, speed: C.drone.speed * (S.L.droneSpeed || 1) * THEME.mods.droneSpeed };
+  if (opts.kind === 'leech') Object.assign(d, { kind: 'leech', hp: C.leech.hp, speed: C.leech.speed * THEME.mods.droneSpeed, y: rnd(110, 150) });
   S.drones.push(d); return d;
 }
 function pickTarget(S, d) {
@@ -195,7 +198,15 @@ export function updateDrones(S, dt) {
     const d = S.drones[i]; d.bob += dt * 3; d.hit = Math.max(0, d.hit - dt * 4);
     if (d.state === 'dead') { d.die += dt; if (d.die > 0.45) S.drones.splice(i, 1); continue; }
     if (d.state === 'flee') { d.y -= 220 * dt; d.x += (d.x < C.W / 2 ? -1 : 1) * 320 * dt; if (d.y < -120 || d.x < -150 || d.x > C.W + 150) S.drones.splice(i, 1); continue; }
-    if (!d.still) {
+    if (d.kind === 'leech') {   // flies to the street battery, plugs in and siphons it
+      const bp = batteryPos(S), tx = bp.x + 34, ty = GROUND - 112;
+      if (d.state === 'seek') { const dx = tx - d.x, dy = ty - d.y, dist = Math.hypot(dx, dy); if (dist > 4) { const m = Math.min(dist, d.speed * dt); d.x += dx / dist * m; d.y += dy / dist * m; } else { d.state = 'drain'; d.t = 0; fx.text(d.x + 40, d.y - 60, 'Draining!', '#ff8fab', 16); } }
+      else if (d.state === 'drain') {
+        d.t += dt; d.x = tx + Math.sin(d.t * 30) * 1.5; d.y = ty;
+        const take = Math.min(S.battery, C.leech.drain * dt); S.battery -= take; S.stats.leeched = (S.stats.leeched || 0) + take;
+        if (take > 0) { S.ui.batPulse = Math.max(S.ui.batPulse, 0.4); if (Math.random() < dt * 3) fx.text(bp.x + 6, bp.y - 66, '-kWh', '#ff8fab', 13, 0.6); }
+      }
+    } else if (!d.still) {
       if (d.state === 'seek') {
         d.rest -= dt;
         if (!d.target || d.target.cover > 0 || !d.target.placed) { d.target = pickTarget(S, d); }
@@ -245,7 +256,7 @@ export function tapDrone(S, d) {
 }
 export function killDrone(S, d, hits) {
   d.state = 'dead'; d.die = 0; d.target = null;
-  const m = hitCombo(S, d.x, d.y, hits), coins = C.drone.coins * m;
+  const m = hitCombo(S, d.x, d.y, hits), coins = (d.kind === 'leech' ? C.leech.coins : C.drone.coins) * m;
   S.coins += coins; S.stats.drones++;
   fx.burst(d.x, d.y, '#8ecae6', 30, 260); fx.burst(d.x, d.y, '#ffffff', 12, 160); fx.text(d.x, d.y - 20, `+${coins}`, C.combo.colors[m - 1], 18 + m * 2);
   for (let j = 0; j < Math.min(3, m); j++) fly(S, d.x, d.y, G.HUD_COIN, '#ffc94d', () => { S.ui.coinPulse = 1; }, j * 0.06);
@@ -270,11 +281,19 @@ export function drawDrones(S) {
       ctx.fillStyle = `rgba(40,40,80,${0.25 + 0.3 * k})`; ctx.beginPath(); ctx.ellipse(d.x, d.y + 70, 34, 8, 0, 0, 7); ctx.fill();
       if (d.target) { ctx.strokeStyle = `rgba(255,90,120,${0.5 + 0.5 * Math.sin(T * 20)})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(d.target.x, d.target.y - 12, 22 - k * 8, 0, 7); ctx.stroke(); }
     }
+    if (d.kind === 'leech' && d.state === 'drain') {   // power cable from the battery into the leech
+      const bp = batteryPos(S); ctx.strokeStyle = `rgba(255,90,120,${0.6 + 0.4 * Math.sin(T * 18)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(bp.x, bp.y - 58);
+      for (let k = 1; k <= 6; k++) { const f = k / 6; ctx.lineTo(lerpN(bp.x, d.x, f) + (k < 6 ? Math.sin(T * 25 + k) * 5 : 0), lerpN(bp.y - 58, d.y + 18, f)); } ctx.stroke();
+    }
+    if (d.kind === 'leech' && d.state !== 'flee') { const lg = ctx.createRadialGradient(d.x, d.y, 6, d.x, d.y, 54); lg.addColorStop(0, 'rgba(255,70,110,.45)'); lg.addColorStop(1, 'rgba(255,70,110,0)'); ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(d.x, d.y, 54, 0, 7); ctx.fill(); }
     const hg = ctx.createRadialGradient(d.x, d.y, 8, d.x, d.y, 60); hg.addColorStop(0, charging ? `rgba(255,120,150,${0.2 + 0.25 * k})` : 'rgba(120,200,255,.2)'); hg.addColorStop(1, 'rgba(120,200,255,0)');
     ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(d.x, d.y, 60, 0, 7); ctx.fill();
     const flash = d.hit > 0 ? 0.5 : 1;
-    if (!sprite('storm', d.x, d.y + 35 + wob, 70, d.x > C.W / 2, d.state === 'flee' ? 0.6 : flash)) { ctx.fillStyle = '#445'; ctx.beginPath(); ctx.arc(d.x, d.y, 30, 0, 7); ctx.fill(); }
-    if (d.hp < C.drone.hp && d.state !== 'flee') { ctx.fillStyle = '#ff6b6b'; ctx.font = font(900, 12); ctx.textAlign = 'center'; ctx.fillText('♥'.repeat(Math.max(0, d.hp)), d.x, d.y - 40); }
+    if (d.kind === 'leech') ctx.filter = 'hue-rotate(140deg) saturate(1.8)';
+    const drew = sprite('storm', d.x, d.y + 35 + wob, d.kind === 'leech' ? 60 : 70, d.x > C.W / 2, d.state === 'flee' ? 0.6 : flash); ctx.filter = 'none';
+    if (!drew) { ctx.fillStyle = '#445'; ctx.beginPath(); ctx.arc(d.x, d.y, 30, 0, 7); ctx.fill(); }
+    if (d.kind === 'leech' && d.state !== 'flee') { roundRect(ctx, d.x - 24, d.y - 52, 48, 15, 7.5); ctx.fillStyle = '#ff4d6d'; ctx.fill(); ctx.fillStyle = '#fff'; ctx.font = font(900, 11); ctx.textAlign = 'center'; ctx.fillText('LEECH', d.x, d.y - 41); }
+    else if (d.hp < C.drone.hp && d.state !== 'flee') { ctx.fillStyle = '#ff6b6b'; ctx.font = font(900, 12); ctx.textAlign = 'center'; ctx.fillText('♥'.repeat(Math.max(0, d.hp)), d.x, d.y - 40); }
   }
 }
 

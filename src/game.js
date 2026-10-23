@@ -93,11 +93,12 @@ function daySim(S, dt) {
   // storm waves
   const W = S.L.waves;
   if (S.waveIdx < W.length && S.t >= W[S.waveIdx][0]) {
-    const n = W[S.waveIdx][1]; S.waveIdx++;
-    showBanner(`Storm wave ${S.waveIdx}/${W.length}: ${n} drone${n > 1 ? 's' : ''}! Stomp them before they cover your panels`, '#8ecae6', 2.6); sfx.alarm();
-    for (let i = 0; i < n; i++) S.pending.push({ t: i * 0.8, side: i % 2 ? 1 : -1 });
+    const n = W[S.waveIdx][1], kind = W[S.waveIdx][2]; S.waveIdx++;
+    if (kind === 'leech') { showBanner('LEECH drone! It sucks power from your street battery: stomp it fast!', '#ff8fab', 2.8); sfx.alarm(); S.pending.push({ t: 0, side: -1, kind }); }
+    else showBanner(`Storm wave ${S.waveIdx}/${W.length}: ${n} drone${n > 1 ? 's' : ''}! Stomp them before they cover your panels`, '#8ecae6', 2.6); sfx.alarm();
+    if (kind !== 'leech') for (let i = 0; i < n; i++) S.pending.push({ t: i * 0.8, side: i % 2 ? 1 : -1 });
   }
-  for (let i = S.pending.length - 1; i >= 0; i--) { const q = S.pending[i]; q.t -= dt; if (q.t <= 0) { spawnDrone(S, { side: q.side }); S.pending.splice(i, 1); } }
+  for (let i = S.pending.length - 1; i >= 0; i--) { const q = S.pending[i]; q.t -= dt; if (q.t <= 0) { spawnDrone(S, { side: q.side, kind: q.kind }); S.pending.splice(i, 1); } }
   heroDayActions(S, dt, ctl);
   if (S.tut) tutorialStep(S, dt);
   if (!S.tut && S.t >= S.L.dayS) startDusk(S);
@@ -151,7 +152,11 @@ function resultNext() {
   if (S.lv >= 4) { G.mode = 'final'; G.banner = null; sfx.win(); return; }
   if (!G.save.picked[S.lv]) {
     const pool = C.upgrades.filter(u => !G.save.ups.includes(u.id)).sort(() => Math.random() - 0.5);
-    if (pool.length) { choices = pool.slice(0, 3); G.mode = 'upgrade'; return; }
+    if (pool.length) {   // always offer at least one night card and one day card, so the pick is a day-vs-night choice
+      choices = pool.slice(0, 3);
+      for (const want of [true, false]) if (!choices.some(u => !!u.night === want)) { const alt = pool.find(u => !!u.night === want && !choices.includes(u)); if (alt) choices[want ? 2 : 1] = alt; }
+      G.mode = 'upgrade'; return;
+    }
   }
   startLevel(S.lv + 1);
 }
